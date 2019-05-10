@@ -102,3 +102,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Manually added
+*.pdf
+Icon?
+data
+experiments*
+.DS_Store
+.vscode
+
