@@ -1,4 +1,4 @@
-#%% Setup
+#%% Import
 import tensorflow as tf
 import numpy as np
 from transformer import spatial_transformer_network as transformer
@@ -9,31 +9,34 @@ import data
 import models
 from utils import * # pylint: disable=unused-wildcard-import
 from argparse import ArgumentParser
-from functools import reduce
 from os import mkdir
 
+# Weird workaround found at https://stackoverflow.com/questions/44855603/typeerror-cant-pickle-thread-lock-objects-in-seq2seq
+setattr(tf.contrib.rnn.GRUCell, '__deepcopy__', lambda self, _: self)
+setattr(tf.contrib.rnn.BasicLSTMCell, '__deepcopy__', lambda self, _: self)
+setattr(tf.contrib.rnn.MultiRNNCell, '__deepcopy__', lambda self, _: self)
 print('Successful import')
-#%% Command line arguments
+#%% Parse arguments
 parser = ArgumentParser()
-parser.add_argument(
-    "--name", '-n', type=str, 
-    help="Name to save directory in"
-)
 parser.add_argument(
     "--dataset", '-d', type=str, 
     help="dataset to run on, default mnist"
-)
-parser.add_argument(
-    "--iterations", '-i', type=int, 
-    help="Iterations to train on, default 150000"
 )
 parser.add_argument(
     "--model", '-m', type=str, 
     help="Name of the model: CNN or FCN"
 )
 parser.add_argument(
+    "--model-parameters", type=list,
+    help="The number of neurons/filters to use in the model layers"
+)
+parser.add_argument(
     "--localization", '-l', type=str, 
     help="Name of localization: FCN, CNN, small or none"
+)
+parser.add_argument(
+    "--localization-parameters", type=list,
+    help="The number of neurons/filters to use in the localization layers"
 )
 parser.add_argument(
     "--stn-placement", '-p', type=int, 
@@ -44,6 +47,10 @@ parser.add_argument(
     help="Whether to place the stn in the beginning of the network or the middle"
 )
 parser.add_argument(
+    "--iterations", '-i', type=int, 
+    help="Iterations to train on, default 150000"
+)
+parser.add_argument(
     "--runs", type=int, 
     help="Number of time to run this experiment, default 1"
 )
@@ -51,60 +58,56 @@ parser.add_argument(
     "--rotate", type=bool, 
     help="Whether to rotate the dataset"
 )
+parser.add_argument(
+    "--name", '-n', type=str, 
+    help="Name to save directory in"
+)
 args = parser.parse_args()
 
 print("Parsed: ", args)
 
-#%% Set parameters
-if args.dataset:
-    data_fn = {
-    # 'cluttered':    data.cluttered_mnist,
-    # 'prerotated':   data.prerotated_mnist,
-    # 'ownrotated':   data.ownrotated_mnist,
-    'mnist':        data.mnist,
-    'cifar10':      data.cifar10
-    }.get(args.dataset)
-    assert not (data_fn is None), 'Could not find dataset '+args.dataset
-else:
+#%% Read arguments
+if args.dataset is None:
     print('Using default dataset: mnist')
-    data_fn = data.mnist
+    args.dataset = 'mnist'
+data_fn = data.data_dic.get(args.dataset)
+assert not (data_fn is None), 'Could not find dataset '+args.dataset
 
-if args.model:
-    layer_fn = {
-        'CNN': models.CNN,
-        'FCN': models.FCN
-    }.get(args.model)
-    assert not (layer_fn is None), 'Could not find model '+args.model
-else:
+if args.model is None:
     print('Using default model: CNN')
-    layer_fn = models.CNN
+    args.model = 'CNN'
+model_class = models.model_dic.get(args.model)
+assert not (model_class is None), 'Could not find model ' + args.model
 
-if args.localization:
-    localization_fn = {
-        'CNN': models.CNN_localization,
-        'FCN': models.FCN_localization,
-        'small': models.small_localization,
-        'none': False
-    }.get(args.localization)
-    assert not (localization_fn is None), 'Could not find localization '+args.localization
-else:
+model_obj = model_class(args.model_parameters)
+if args.model_parameters is None:
+    print('Using default parameters')
+    args.model_parameters = model_obj.parameters
+
+if args.localization is None:
     print('Using no spatial transformer network')
-    localization_fn = False
+    args.localization = 'false'
+localization_class = models.localization_dic.get(args.localization)
+assert not (localization_class is None), 'Could not find localization ' + args.localization
+
+localization_obj = localization_class(args.localization_parameters)
+if localization_obj and args.localization_parameters is None:
+    print('Using default parameters')
+    args.localization_parameters = localization_obj.parameters
 
 stn_placement = args.stn_placement or 0
-assert localization_fn or not stn_placement
-it = args.iterations or 150000
+assert localization_class or not stn_placement
+
 loop = args.loop or False
+it = args.iterations or 150000
 runs = args.runs or 1
 rotate = args.rotate or True
 name = args.name or 'result'
 
-#%% Setup model
-
+#%% Setup
 xtrn,ytrn,xtst,ytst = data_fn()
 samples = xtrn.shape[0]
 B = 256 # batch size
-B_per_epoch = np.floor(samples/B)
 
 learning_rates = [0.01,0.001,0.0001]
 switch_after_it = 50000
@@ -114,71 +117,17 @@ def scheduler(epoch):
     return learning_rates[i if len(learning_rates) > i else -1]
 change_lr = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
-def save_all(directory, model, history, trn, tst, t):
-    try:
-        mkdir(directory)
-    except FileExistsError:
-        print('Overwriting existing directory:',name)
-    file = open(directory + 'out.txt', 'w+')
-    file.write('Training error: ' + str(trn) + '\n')
-    file.write('Test error: ' + str(tst) + '\n')
-    file.write('Time: ' + str(t) + '\n')
-
-    model.save(directory + 'model.h5')
-    db = dbm.dumb.open(directory + 'variables')
-    with shelve.Shelf(db) as shelf:
-        shelf['history'] = history.history
-        shelf['samples'] = samples
-        shelf['B'] = B
-        shelf['args'] = args
-
-def sequential(layers, initial):
-    return reduce(lambda l0,l1: l1(l0), layers, initial)
-
-layers = layer_fn()
-inp = tf.keras.layers.Input(shape=xtrn.shape[1:])
-
 for run in range(runs):
-    if localization_fn:
-        stn = tf.keras.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
-
-        first_layers = layers[:stn_placement]
-        localization_in = sequential(first_layers, inp)
-        # first_layers = tf.keras.layers.Lambda(lambda i: sequential(layers[:stn_placement], i))
-        # localization_in = first_layers(inp)
-
-        parameters = tf.layers.Dense(
-            units = 6,
-            kernel_initializer = tf.keras.initializers.Zeros(),
-            bias_initializer = tf.keras.initializers.Constant([1,0,0,1,0,0]),
-        )(sequential(localization_fn(), localization_in))
-
-        if loop:
-            first_out = sequential(first_layers, stn([inp, parameters]))
-            # first_out = first_layers(stn([inp, parameters]))
-        else:
-            first_out = stn([localization_in, parameters])
-
-        pred = sequential(layers[stn_placement:], first_out)
-    else:
-        pred = sequential(layers, inp)
-
-    model = tf.keras.models.Model(inputs=inp, outputs=pred)
-
-    optimizer = tf.keras.optimizers.SGD(lr=learning_rates[0])
-
-    print("Type of labels", ytrn.dtype)
-
+    # Create model
+    model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
     model.compile(
-        optimizer,
+        tf.keras.optimizers.SGD(lr=learning_rates[0]),
         loss = tf.losses.softmax_cross_entropy,
         metrics = ['accuracy'],
     )
-
     print("Compiled:", model)
 
-#%% Train model
-
+    # Setup data
     if rotate:
         generator = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=90)
     else:
@@ -186,17 +135,19 @@ for run in range(runs):
     trn_flow = generator.flow(xtrn, ytrn, batch_size=B, shuffle=True)
     tst_flow = generator.flow(xtst, ytst, batch_size=B, shuffle=True)
 
+    # Train model
     tf.keras.backend.get_session().run(tf.global_variables_initializer())
 
-    t = time.time()
     epochs_to_train = int(it * B / samples)
     print('Training for epochs:', epochs_to_train)
+    t = time.time()
     history = model.fit_generator(
         trn_flow, 
         epochs = epochs_to_train,
         # validation_data = tst_flow,
         callbacks = [change_lr]
     )
+
     steps_left = int(it - epochs_to_train * samples / B)
     print('Training for steps:', steps_left)
     for i,(x,y) in enumerate(trn_flow):
@@ -209,14 +160,42 @@ for run in range(runs):
     print('Time', t)
     print('Time per batch', t / it)
 
-    print(history.history.keys())
-    print('Evaluating')
+    # Evaluate model
+    print('Evaluating...')
     trn_res = model.evaluate_generator(trn_flow)
     print('Training accuracy:', trn_res)
     tst_res = model.evaluate_generator(tst_flow)
     print('Test accuracy:', tst_res)
 
-    if runs == 1:
-        save_all(name + '/', model, history, trn_res, tst_res, t)
-    else:
-        save_all(name + str(run) + '/', model, history, trn_res, tst_res, t)
+    print('Keys saved:', history.history.keys())
+
+    # Save run
+    directory = (name if runs == 1 else name + str(run)) + '/'
+
+    try:
+        mkdir(directory)
+    except FileExistsError:
+        print('Overwriting existing directory:',name)
+
+    file = open(directory + 'out.txt', 'w+')
+    file.write('Training error: ' + str(trn_res) + '\n')
+    file.write('Test error: ' + str(tst_res) + '\n')
+    file.write('Time: ' + str(t) + '\n')
+
+    model.save(directory + 'model.h5')
+
+    db = dbm.dumb.open(directory + 'variables')
+    with shelve.Shelf(db) as shelf:
+        shelf['history'] = history.history
+        shelf['samples'] = samples
+        shelf['B'] = B
+
+        shelf['dataset'] = args.dataset
+        shelf['model'] = args.model
+        shelf['model_parameters'] = args.model_parameters
+        shelf['localization'] = args.localization
+        shelf['localization_parameters'] = args.localization_parameters
+        shelf['stn_placement'] = stn_placement
+        shelf['loop'] = loop
+        shelf['iterations'] = it
+        shelf['rotate'] = rotate

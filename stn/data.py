@@ -54,4 +54,7 @@ def cifar10():
     return (xtrn,ytrn,xtst,ytst)
 
 
-#%%
+data_dic = {
+    'mnist':    mnist,
+    'cifar10':  cifar10
+}

@@ -1,4 +1,4 @@
-#%% Setup
+#%% Import modules
 import tensorflow as tf
 import numpy as np
 from transformer import spatial_transformer_network as transformer
@@ -6,29 +6,51 @@ import matplotlib.pyplot as plt
 import time
 from scipy.misc import imrotate
 import shelve
-from utils import * # pylint: disable=unused-wildcard-import
-#from utils import img2array, array2img
+import data
+import models
 
 #%% Restore data
-directory = 'CNNFCNmploop0/'
+directory = 'result/'
+# directory = 'CNNFCNmploop0/'
 # directory = '../../legacy/CNNSTNmp/'
-with shelve.open(directory + 'variables') as db:
+with shelve.open(directory + 'variables') as shelf:
     try:
-        history = db['history']
-        samples = db['samples']
-        B = db['B']
-    except KeyError:
-        print('Old data file, restoring everything')
-        for key in db:
-            globals()[key] = db[key]
+        history = shelf['history']
+        samples = shelf['samples']
+        B = shelf['B']
 
-model = tf.keras.models.load_model(
-    filepath = directory + 'model.h5',
-    custom_objects = {
-        'softmax_cross_entropy':tf.losses.softmax_cross_entropy,
-        'transformer': transformer
-    }
-)
+        # data_fn = data.data_dic.get(shelf['dataset'])
+        # xtrn, ytrn, xtst, ytst = data_fn()
+
+        # model_class = models.model_dic.get(shelf['model'])
+        # model_obj = model_class(shelf['model_parameters'])
+
+        # localization_class = models.model_dic.get(shelf['localization'])
+        # localization_obj = localization_class(shelf['localization_parameters'])
+
+        # it = shelf['iterations']
+        # rotate = shelf['rotate'] 
+
+        # model = models.compose_model(
+        #     model_obj,
+        #     localization_obj,
+        #     shelf['stn_placement'],
+        #     shelf['loop'],
+        #     xtrn.shape[1:]
+        # )
+    except KeyError:
+        print('Old data file, restoring everything that can be restored')
+        for key in shelf:
+            globals()[key] = shelf[key]
+
+with tf.keras.utils.CustomObjectScope({'STN':models.STN}):
+    model = tf.keras.models.load_model(
+        filepath = directory + 'model.h5',
+        custom_objects = {
+            'softmax_cross_entropy':tf.losses.softmax_cross_entropy,
+            'transformer': transformer
+        }
+    )
 
 #%%
 # plt.plot(trn_val)
