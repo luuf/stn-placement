@@ -11,10 +11,6 @@ from utils import * # pylint: disable=unused-wildcard-import
 from argparse import ArgumentParser
 from os import mkdir
 
-# Weird workaround found at https://stackoverflow.com/questions/44855603/typeerror-cant-pickle-thread-lock-objects-in-seq2seq
-setattr(tf.contrib.rnn.GRUCell, '__deepcopy__', lambda self, _: self)
-setattr(tf.contrib.rnn.BasicLSTMCell, '__deepcopy__', lambda self, _: self)
-setattr(tf.contrib.rnn.MultiRNNCell, '__deepcopy__', lambda self, _: self)
 print('Successful import')
 #%% Parse arguments
 parser = ArgumentParser()
@@ -43,10 +39,6 @@ parser.add_argument(
     help="Number of layers to place stn after"
 )
 parser.add_argument(
-    "--loop", type=bool, 
-    help="Whether to place the stn in the beginning of the network or the middle"
-)
-parser.add_argument(
     "--iterations", '-i', type=int, 
     help="Iterations to train on, default 150000"
 )
@@ -55,29 +47,51 @@ parser.add_argument(
     help="Number of time to run this experiment, default 1"
 )
 parser.add_argument(
-    "--rotate", type=bool, 
-    help="Whether to rotate the dataset"
-)
-parser.add_argument(
     "--name", '-n', type=str, 
     help="Name to save directory in"
 )
-args = parser.parse_args()
 
+loop_parser = parser.add_mutually_exclusive_group(required=False)
+loop_parser.add_argument(
+    "--loop", dest="loop", action="store_true",
+    help="Use the stn-parameters to rotate the input, even if it's later"
+)
+loop_parser.add_argument(
+    '--no-loop', dest='loop', action='store_false',
+    help="Use the stn-parameters to rotate the featuremap it's placed after"
+)
+parser.set_defaults(loop=False)
+
+rotate_parser = parser.add_mutually_exclusive_group(required=False)
+rotate_parser.add_argument(
+    "--rotate", dest="rotate", action="store_true",
+    help="Rotate the data randomly before feeding it to the network"
+)
+rotate_parser.add_argument(
+    '--no-rotate', dest='rotate', action='store_false',
+    help="Use the data as-is"
+)
+parser.set_defaults(rotate=True)
+
+args = parser.parse_args()
 print("Parsed: ", args)
 
 #%% Read arguments
 if args.dataset is None:
     print('Using default dataset: mnist')
     args.dataset = 'mnist'
+else:
+    print('Using dataset:', args.dataset)
 data_fn = data.data_dic.get(args.dataset)
-assert not (data_fn is None), 'Could not find dataset '+args.dataset
+assert not (data_fn is None), 'Could not find dataset'
 
 if args.model is None:
     print('Using default model: CNN')
     args.model = 'CNN'
+else:
+    print('Using model:', args.model)
 model_class = models.model_dic.get(args.model)
-assert not (model_class is None), 'Could not find model ' + args.model
+assert not (model_class is None), 'Could not find model'
 
 model_obj = model_class(args.model_parameters)
 if args.model_parameters is None:
@@ -87,8 +101,10 @@ if args.model_parameters is None:
 if args.localization is None:
     print('Using no spatial transformer network')
     args.localization = 'false'
+else:
+    print('Using localization:', args.localization)
 localization_class = models.localization_dic.get(args.localization)
-assert not (localization_class is None), 'Could not find localization ' + args.localization
+assert not (localization_class is None), 'Could not find localization'
 
 localization_obj = localization_class(args.localization_parameters)
 if localization_obj and args.localization_parameters is None:
@@ -96,13 +112,24 @@ if localization_obj and args.localization_parameters is None:
     args.localization_parameters = localization_obj.parameters
 
 stn_placement = args.stn_placement or 0
-assert localization_class or not stn_placement
+print('STN-placement:', stn_placement)
 
-loop = args.loop or False
 it = args.iterations or 150000
+print('Iterations:', it)
+
 runs = args.runs or 1
-rotate = args.rotate or True
+print('Runs:', runs)
+
+loop = args.loop
+print('Loop:', bool(loop))
+
+rotate = args.rotate
+print('Rotate:', bool(rotate))
+
 name = args.name or 'result'
+print('Name:', name)
+
+assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
 xtrn,ytrn,xtst,ytst = data_fn()
