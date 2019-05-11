@@ -41,14 +41,16 @@ def ownrotated_mnist():
 
 def mnist():
     (xtrn, ytrn), (xtst, ytst) = keras.datasets.mnist.load_data()
-    xtrn = xtrn.reshape([xtrn.shape[0],28,28,1])
-    xtst = xtst.reshape([xtst.shape[0],28,28,1])
+    xtrn = xtrn.reshape([xtrn.shape[0],28,28,1]) / 255
+    xtst = xtst.reshape([xtst.shape[0],28,28,1]) / 255
     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
     ytst = np.array([[float(y == i) for i in range(10)] for y in ytst])
     return (xtrn,ytrn,xtst,ytst)
 
 def cifar10():
     (xtrn, ytrnind), (xtst, ytstind) = keras.datasets.cifar10.load_data()
+    xtrn = xtrn / 255
+    xtst = xtst / 255
     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrnind])
     ytst = np.array([[float(y == i) for i in range(10)] for y in ytstind])
     return (xtrn,ytrn,xtst,ytst)
