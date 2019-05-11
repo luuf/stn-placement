@@ -7,6 +7,7 @@ import shelve
 import dbm.dumb
 import data
 import models
+import utils
 from utils import * # pylint: disable=unused-wildcard-import
 from argparse import ArgumentParser
 from os import mkdir
@@ -146,55 +147,82 @@ change_lr = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
 for run in range(runs):
     # Create model
-    model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
-    model.compile(
-        tf.keras.optimizers.SGD(lr=learning_rates[0]),
-        loss = tf.losses.softmax_cross_entropy,
-        metrics = ['accuracy'],
-    )
-    print("Compiled:", model)
+    handle,iterator,trn_it,tst_it = prepareiterators(xtrn,ytrn,xtst,ytst,B)
+    nxt = iterator.get_next()
+    pred = models.compose_graph(model_obj, localization_obj, stn_placement, loop, nxt[1])
 
-    # Setup data
-    if rotate:
-        generator = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=90)
-    else:
-        generator = tf.keras.preprocessing.image.ImageDataGenerator()
-    trn_flow = generator.flow(xtrn, ytrn, batch_size=B, shuffle=True)
-    tst_flow = generator.flow(xtst, ytst, batch_size=B, shuffle=True)
+    loss = tf.losses.softmax_cross_entropy(onehot_labels=nxt[0], logits=pred)
+    eta = tf.Variable(0.01, trainable=False)
+    train = tf.train.GradientDescentOptimizer(eta).minimize(loss)
 
-    # Train model
-    tf.keras.backend.get_session().run(tf.global_variables_initializer())
+    pred_num = tf.argmax(pred,1)
+    y_num = tf.argmax(nxt[0],1)
+    _,c_accuracy = tf.metrics.accuracy(labels = y_num, predictions = pred_num, name='c_accuracy')
+    reset_metrics=tf.variables_initializer(tf.get_collection(tf.GraphKeys.METRIC_VARIABLES))
 
-    epochs_to_train = int(it * B / samples)
-    print('Training for epochs:', epochs_to_train)
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.local_variables_initializer())
+
+    trnhandle = sess.run(trn_it.string_handle())
+    tsthandle = sess.run(tst_it.string_handle())
+
     t = time.time()
-    history = model.fit_generator(
-        trn_flow, 
-        epochs = epochs_to_train,
-        # validation_data = tst_flow,
-        callbacks = [change_lr]
-    )
+    for lr in learning_rates:
+        eta.assign(lr)
+        for i in range(min(50000,it)):
+            out = sess.run((train,c_accuracy),feed_dict={handle:trnhandle})
+            print(out[1])
+    print(time.time()-t)
 
-    steps_left = int(it - epochs_to_train * samples / B)
-    print('Training for steps:', steps_left)
-    for i,(x,y) in enumerate(trn_flow):
-        if i >= steps_left:
-            break
-        train_batch = model.train_on_batch(x,y)
-    else:
-        raise Exception("Ran out of samples before steps")
-    t = time.time() - t
-    print('Time', t)
-    print('Time per batch', t / it)
+    # model = models.compose_model(model_obj, localization_obj, stn_placement, loop, nxt[1])
+    # model.compile(
+    #     tf.keras.optimizers.SGD(lr=learning_rates[0]),
+    #     loss = tf.losses.softmax_cross_entropy,
+    #     metrics = ['accuracy'],
+    # )
+    # # Setup data
+    # if rotate:
+    #     generator = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=90)
+    # else:
+    #     generator = tf.keras.preprocessing.image.ImageDataGenerator()
+    # trn_flow = generator.flow(xtrn, ytrn, batch_size=B, shuffle=True)
+    # tst_flow = generator.flow(xtst, ytst, batch_size=B, shuffle=True)
 
-    # Evaluate model
-    print('Evaluating...')
-    trn_res = model.evaluate_generator(trn_flow)
-    print('Training accuracy:', trn_res)
-    tst_res = model.evaluate_generator(tst_flow)
-    print('Test accuracy:', tst_res)
 
-    print('Keys saved:', history.history.keys())
+    # # Train model
+    # tf.keras.backend.get_session().run(tf.global_variables_initializer())
+
+    # epochs_to_train = int(it * B / samples)
+    # print('Training for epochs:', epochs_to_train)
+    # t = time.time()
+    # history = model.fit_generator(
+    #     trn_flow, 
+    #     epochs = epochs_to_train,
+    #     # validation_data = tst_flow,
+    #     callbacks = [change_lr]
+    # )
+
+    # steps_left = int(it - epochs_to_train * samples / B)
+    # print('Training for steps:', steps_left)
+    # for i,(x,y) in enumerate(trn_flow):
+    #     if i >= steps_left:
+    #         break
+    #     train_batch = model.train_on_batch(x,y)
+    # else:
+    #     raise Exception("Ran out of samples before steps")
+    # t = time.time() - t
+    # print('Time', t)
+    # print('Time per batch', t / it)
+
+    # # Evaluate model
+    # print('Evaluating...')
+    # trn_res = model.evaluate_generator(trn_flow)
+    # print('Training accuracy:', trn_res)
+    # tst_res = model.evaluate_generator(tst_flow)
+    # print('Test accuracy:', tst_res)
+
+    # print('Keys saved:', history.history.keys())
 
     # Save run
     directory = (name if runs == 1 else name + str(run)) + '/'
@@ -209,7 +237,7 @@ for run in range(runs):
     file.write('Test error: ' + str(tst_res) + '\n')
     file.write('Time: ' + str(t) + '\n')
 
-    model.save(directory + 'model.h5')
+    # model.save(directory + 'model.h5')
 
     db = dbm.dumb.open(directory + 'variables')
     with shelve.Shelf(db) as shelf:

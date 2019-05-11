@@ -9,7 +9,8 @@ def rotaterandom(im,side,B):
     s = tf.sin(rad)
     zeros = tf.zeros([B])
     param = tf.stack([c, -s, zeros, s, c, zeros], 1)
-    return tf.reshape(transformer(tf.reshape(im,[B,side,side,1]),param),(B,im.shape[1]))
+    return transformer(im,param)
+    # return tf.reshape(transformer(tf.reshape(im,[B,side,side,1]),param),(B,im.shape[1]))
 
 def prepareslices(x,y,B,rotate=True):
     side = int(np.sqrt(x.shape[1])+0.5)

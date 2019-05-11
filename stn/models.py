@@ -152,3 +152,33 @@ def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
 
     return tf.keras.models.Model(inputs=inp, outputs=pred)
         
+def compose_graph(layers_obj, localization_obj, stn_placement, loop, nxt):
+    layers = layers_obj.get_layers()
+
+    if localization_obj:
+        # stn = tf.keras.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
+        stn = STN()
+
+        first_layers = layers[:stn_placement]
+        localization_in = sequential(first_layers, nxt)
+        # first_layers = tf.keras.layers.Lambda(lambda i: sequential(layers[:stn_placement], i))
+        # localization_in = first_layers(inp)
+
+        parameter_in = sequential(localization_obj.get_layers(), localization_in)
+        parameters = tf.layers.Dense(
+            units = 6,
+            kernel_initializer = tf.keras.initializers.Zeros(),
+            bias_initializer = tf.keras.initializers.Constant([1,0,0,0,1,0],dtype='float32')
+        )(parameter_in)
+
+        if loop:
+            first_out = sequential(first_layers, stn([inp, parameters]))
+            # first_out = first_layers(stn([inp, parameters]))
+        else:
+            first_out = stn([localization_in, parameters])
+
+        pred = sequential(layers[stn_placement:], first_out)
+    else:
+        pred = sequential(layers, nxt)
+
+    return pred
