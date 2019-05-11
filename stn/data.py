@@ -49,6 +49,8 @@ def mnist():
 
 def cifar10():
     (xtrn, ytrnind), (xtst, ytstind) = keras.datasets.cifar10.load_data()
+    xtrn = xtrn / 255
+    xtst = xtst / 255
     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrnind])
     ytst = np.array([[float(y == i) for i in range(10)] for y in ytstind])
     return (xtrn,ytrn,xtst,ytst)
