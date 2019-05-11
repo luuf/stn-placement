@@ -1,0 +1,3 @@
+Training error: [nan, 0.09871667]
+Test error: [nan, 0.098]
+Time: 7.7803709506988525

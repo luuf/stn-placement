@@ -7,11 +7,9 @@ import shelve
 import dbm.dumb
 import data
 import models
-from utils import * # pylint: disable=unused-wildcard-import
 from argparse import ArgumentParser
 from os import mkdir
 
-print('Successful import')
 #%% Parse arguments
 parser = ArgumentParser()
 parser.add_argument(
@@ -146,10 +144,12 @@ change_lr = tf.keras.callbacks.LearningRateScheduler(scheduler)
 
 for run in range(runs):
     # Create model
-    model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
+    model, parameter_model, transformed_model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
     model.compile(
-        tf.keras.optimizers.SGD(lr=learning_rates[0]),
-        loss = tf.losses.softmax_cross_entropy,
+        # tf.keras.optimizers.SGD(lr=learning_rates[0]),
+        tf.train.GradientDescentOptimizer(learning_rate=(0.01)),
+        loss = tf.keras.losses.categorical_crossentropy,
+        # loss = tf.losses.softmax_cross_entropy,
         metrics = ['accuracy'],
     )
     print("Compiled:", model)
@@ -168,12 +168,22 @@ for run in range(runs):
     epochs_to_train = int(it * B / samples)
     print('Training for epochs:', epochs_to_train)
     t = time.time()
-    history = model.fit_generator(
-        trn_flow, 
-        epochs = epochs_to_train,
-        # validation_data = tst_flow,
-        callbacks = [change_lr]
-    )
+    import matplotlib.pyplot as plt
+    for epoch in range(epochs_to_train):
+        print(parameter_model.predict(xtrn[0:2]))
+        plt.imshow(transformed_model.predict(xtrn[0:1])[0,:,:,0])
+        plt.figure()
+        plt.imshow(transformed_model.predict(xtrn[1:2])[0,:,:,0])
+        plt.figure()
+        plt.imshow(transformed_model.predict(xtrn[2:3])[0,:,:,0])
+        plt.show()
+        history = model.fit_generator(
+            trn_flow, 
+            epochs = 1,
+            # validation_data = tst_flow,
+            # callbacks = [change_lr]
+        )
+        
 
     steps_left = int(it - epochs_to_train * samples / B)
     print('Training for steps:', steps_left)

@@ -66,8 +66,8 @@ class FCN:
             tf.layers.Flatten(),
             tf.layers.Dense(units = self.parameters[0], activation = activation_fn),
             tf.layers.Dense(units = self.parameters[1], activation = activation_fn),
-            tf.layers.Dense(units = 10)
-            # tf.layers.Dense(units = 10, activation = 'softmax')
+            # tf.layers.Dense(units = 10)
+            tf.layers.Dense(units = 10, activation = 'softmax')
         ]
 
 class CNN:
@@ -84,8 +84,8 @@ class CNN:
             tf.layers.Conv2D(filters = self.parameters[1], kernel_size = (7,7), activation = activation_fn),
             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
             tf.layers.Flatten(),
-            tf.layers.Dense(units = 10)
-            # tf.layers.Dense(units = 10, activation = 'softmax')
+            # tf.layers.Dense(units = 10)
+            tf.layers.Dense(units = 10, activation = 'softmax')
         ]
 
 
@@ -106,27 +106,27 @@ localization_dic = {
 def sequential(layers, initial):
     return reduce(lambda l0,l1: l1(l0), layers, initial)
 
-class STN(tf.keras.layers.Layer):
-    def call(self, inputs):
-        return transformer(inputs[0], inputs[1])
+# class STN(tf.keras.layers.Layer):
+#     def call(self, inputs):
+#         return transformer(inputs[0], inputs[1])
 
-    def compute_output_shape(self, input_shape):
-        return input_shape[0]
+#     def compute_output_shape(self, input_shape):
+#         return input_shape[0]
 
-    def get_config(self):
-        return None
+#     def get_config(self):
+#         return None
 
-    @classmethod
-    def from_config(cls, config):
-        return STN()
+#     @classmethod
+#     def from_config(cls, config):
+#         return STN()
 
 def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
     layers = layers_obj.get_layers()
     inp = tf.keras.layers.Input(shape=shape)
 
     if localization_obj:
-        # stn = tf.keras.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
-        stn = STN()
+        stn = tf.keras.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
+        # stn = STN()
 
         first_layers = layers[:stn_placement]
         localization_in = sequential(first_layers, inp)
@@ -141,14 +141,36 @@ def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
         )(parameter_in)
 
         if loop:
-            first_out = sequential(first_layers, stn([inp, parameters]))
+            stn_out = stn([inp, parameters])
+            first_out = sequential(first_layers, stn_out)
             # first_out = first_layers(stn([inp, parameters]))
         else:
             first_out = stn([localization_in, parameters])
 
         pred = sequential(layers[stn_placement:], first_out)
+        parameter_model = tf.keras.models.Model(inputs=inp, outputs=parameters)
+        transformed_model = tf.keras.models.Model(inputs=inp, outputs=stn_out)
     else:
         pred = sequential(layers, inp)
 
-    return tf.keras.models.Model(inputs=inp, outputs=pred)
-        
+    return (tf.keras.models.Model(inputs=inp, outputs=pred),parameter_model,transformed_model)
+
+def get_gradients():
+    import data
+    xtrn,ytrn,xtst,ytst=data.mnist()
+    model, parameter_model, transformed_model = compose_model(CNN(), FCN_localization(), 0, True, xtrn.shape[1:])
+    model.compile(
+        # tf.keras.optimizers.SGD(lr=learning_rates[0]),
+        tf.train.GradientDescentOptimizer(learning_rate=(0.01)),
+        loss = tf.keras.losses.categorical_crossentropy,
+        # loss = tf.losses.softmax_cross_entropy,
+        metrics = ['accuracy'],
+    )
+    loss = model.output
+    variableTensors = [parameter_model.layers[-1].output,transformed_model.layers[-1].output]
+    gradients = tf.keras.backend.gradients(loss,variableTensors)
+    sess = tf.InteractiveSession()
+    sess.run(tf.initialize_all_variables())
+    evaluated_gradients = sess.run(gradients,feed_dict={model.input:xtrn[0:7]})
+    return evaluated_gradients
+    
