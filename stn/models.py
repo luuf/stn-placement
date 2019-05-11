@@ -113,9 +113,6 @@ class STN(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
-    def build(self, input_shape):
-        pass
-    
     def get_config(self):
         return None
 
@@ -140,7 +137,7 @@ def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
         parameters = tf.layers.Dense(
             units = 6,
             kernel_initializer = tf.keras.initializers.Zeros(),
-            bias_initializer = tf.keras.initializers.Constant([1,0,0,1,0,0])
+            bias_initializer = tf.keras.initializers.Constant([1,0,0,0,1,0],dtype='float32')
         )(parameter_in)
 
         if loop:
