@@ -1,5 +1,6 @@
 #%% Import
 import tensorflow as tf
+import tensorflow.keras as k
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 import time
@@ -142,13 +143,13 @@ switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
 def scheduler(epoch):
     i = epoch // switch_after_epochs
     return learning_rates[i if len(learning_rates) > i else -1]
-change_lr = tf.keras.callbacks.LearningRateScheduler(scheduler)
+change_lr = k.callbacks.LearningRateScheduler(scheduler)
 
 for run in range(runs):
     # Create model
     model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
     model.compile(
-        tf.keras.optimizers.SGD(lr=learning_rates[0]),
+        k.optimizers.SGD(lr=learning_rates[0]),
         loss = tf.losses.softmax_cross_entropy,
         metrics = ['accuracy'],
     )
@@ -156,14 +157,14 @@ for run in range(runs):
 
     # Setup data
     if rotate:
-        generator = tf.keras.preprocessing.image.ImageDataGenerator(rotation_range=90)
+        generator = k.preprocessing.image.ImageDataGenerator(rotation_range=90)
     else:
-        generator = tf.keras.preprocessing.image.ImageDataGenerator()
+        generator = k.preprocessing.image.ImageDataGenerator()
     trn_flow = generator.flow(xtrn, ytrn, batch_size=B, shuffle=True)
     tst_flow = generator.flow(xtst, ytst, batch_size=B, shuffle=True)
 
     # Train model
-    tf.keras.backend.get_session().run(tf.global_variables_initializer())
+    k.backend.get_session().run(tf.global_variables_initializer())
 
     epochs_to_train = int(it * B / samples)
     print('Training for epochs:', epochs_to_train)

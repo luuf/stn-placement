@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow.keras as k
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 from functools import reduce
@@ -106,7 +107,7 @@ localization_dic = {
 def sequential(layers, initial):
     return reduce(lambda l0,l1: l1(l0), layers, initial)
 
-class STN(tf.keras.layers.Layer):
+class STN(k.layers.Layer):
     def call(self, inputs):
         return transformer(inputs[0], inputs[1])
 
@@ -122,22 +123,22 @@ class STN(tf.keras.layers.Layer):
 
 def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
     layers = layers_obj.get_layers()
-    inp = tf.keras.layers.Input(shape=shape)
+    inp = k.layers.Input(shape=shape)
 
     if localization_obj:
-        # stn = tf.keras.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
+        # stn = k.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
         stn = STN()
 
         first_layers = layers[:stn_placement]
         localization_in = sequential(first_layers, inp)
-        # first_layers = tf.keras.layers.Lambda(lambda i: sequential(layers[:stn_placement], i))
+        # first_layers = k.layers.Lambda(lambda i: sequential(layers[:stn_placement], i))
         # localization_in = first_layers(inp)
 
         parameter_in = sequential(localization_obj.get_layers(), localization_in)
         parameters = tf.layers.Dense(
             units = 6,
-            kernel_initializer = tf.keras.initializers.Zeros(),
-            bias_initializer = tf.keras.initializers.Constant([1,0,0,0,1,0],dtype='float32')
+            kernel_initializer = k.initializers.Zeros(),
+            bias_initializer = k.initializers.Constant([1,0,0,0,1,0],dtype='float32')
         )(parameter_in)
 
         if loop:
@@ -150,5 +151,5 @@ def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
     else:
         pred = sequential(layers, inp)
 
-    return tf.keras.models.Model(inputs=inp, outputs=pred)
+    return k.models.Model(inputs=inp, outputs=pred)
         

@@ -10,10 +10,10 @@ import data
 import models
 
 #%% Restore data
-directory = 'result/'
-# directory = 'CNNFCNmploop0/'
-# directory = '../../legacy/CNNSTNmp/'
-with shelve.open(directory + 'variables') as shelf:
+# directory = 'result'
+directory = '../testSerialization'
+# directory = '../../legacy/CNNSTNmp'
+with shelve.open(directory + '/variables', flag='r') as shelf:
     try:
         history = shelf['history']
         samples = shelf['samples']
@@ -45,7 +45,7 @@ with shelve.open(directory + 'variables') as shelf:
 
 with tf.keras.utils.CustomObjectScope({'STN':models.STN}):
     model = tf.keras.models.load_model(
-        filepath = directory + 'model.h5',
+        filepath = directory + '/model.h5',
         custom_objects = {
             'softmax_cross_entropy':tf.losses.softmax_cross_entropy,
             'transformer': transformer

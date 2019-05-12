@@ -1,6 +1,6 @@
 #%%
 import numpy as np
-from tensorflow import keras
+from tensorflow import keras as k
 
 def mnist_reshape(x):
     return x.reshape(x.shape[0], 28, 28, 1)
@@ -40,7 +40,7 @@ def ownrotated_mnist():
     return (xtrn,xval,xtst,ytrn,yval,ytst)
 
 def mnist():
-    (xtrn, ytrn), (xtst, ytst) = keras.datasets.mnist.load_data()
+    (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
     xtrn = xtrn.reshape([xtrn.shape[0],28,28,1]) / 255
     xtst = xtst.reshape([xtst.shape[0],28,28,1]) / 255
     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
@@ -48,7 +48,7 @@ def mnist():
     return (xtrn,ytrn,xtst,ytst)
 
 def cifar10():
-    (xtrn, ytrnind), (xtst, ytstind) = keras.datasets.cifar10.load_data()
+    (xtrn, ytrnind), (xtst, ytstind) = k.datasets.cifar10.load_data()
     xtrn = xtrn / 255
     xtst = xtst / 255
     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrnind])
