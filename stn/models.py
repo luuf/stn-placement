@@ -3,6 +3,7 @@ import tensorflow.keras as k
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 from functools import reduce
+import utils
 
 activation_fn = tf.nn.relu
 
@@ -123,7 +124,7 @@ class STN(k.layers.Layer):
 
 def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
     layers = layers_obj.get_layers()
-    inp = k.layers.Input(shape=shape)
+    inp = k.layers.Input(shape=shape,name='classification_inp')
 
     if localization_obj:
         # stn = k.layers.Lambda(lambda inputs: transformer(inputs[0],inputs[1]))
@@ -152,4 +153,11 @@ def compose_model(layers_obj, localization_obj, stn_placement, loop, shape):
         pred = sequential(layers, inp)
 
     return k.models.Model(inputs=inp, outputs=pred)
-        
+
+def add_rotation_layer(model, rad=None):
+    inp = k.layers.Input(shape=model.input_shape[1:],name='rot_inp')
+    if rad is None:
+        rotate = k.layers.Lambda(utils.rotate_tensor)
+    else:
+        rotate = k.layers.Lambda(lambda im: utils.rotate_tensor(im, rad))
+    return k.models.Model(inputs = inp, outputs = model(rotate(inp)))

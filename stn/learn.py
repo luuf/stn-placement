@@ -154,9 +154,7 @@ for run in range(runs):
     classification_model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
 
     if rotate:
-        inp = k.layers.Input(shape=xtrn.shape[1:])
-        rotated = k.layers.Lambda(utils.rotate_tensor)(inp)
-        model = k.models.Model(inputs=inp, outputs=classification_model(rotated))
+        model = models.add_rotation_layer(classification_model)
     else:
         model = classification_model
 
@@ -191,7 +189,7 @@ for run in range(runs):
         batch_size = 256,
         epochs = 1,
         initial_epoch = epochs_to_train,
-        shuffle = True,
+        shuffle = True
         # callbacks = [change_lr]
     )
     t = time.time() - t
@@ -220,7 +218,10 @@ for run in range(runs):
     file.write('Test error: ' + str(tst_res) + '\n')
     file.write('Time: ' + str(t) + '\n')
 
-    classification_model.save(directory + 'model.h5')
+    classification_model.save(
+        directory + 'model.h5',
+        include_optimizer = False
+    )
 
     db = dbm.dumb.open(directory + 'variables')
     with shelve.Shelf(db) as shelf:
