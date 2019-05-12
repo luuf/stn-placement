@@ -8,7 +8,7 @@ import shelve
 import dbm.dumb
 import data
 import models
-from utils import * # pylint: disable=unused-wildcard-import
+import utils
 from argparse import ArgumentParser
 from os import mkdir
 
@@ -140,59 +140,69 @@ B = 256 # batch size
 learning_rates = [0.01,0.001,0.0001]
 switch_after_it = 50000
 switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
-def scheduler(epoch):
-    i = epoch // switch_after_epochs
-    return learning_rates[i if len(learning_rates) > i else -1]
-change_lr = k.callbacks.LearningRateScheduler(scheduler)
+eta = tf.Variable(learning_rates[0],trainable=False)
+def change_learningrate(epoch,logs):
+    print('learning rate epoch', epoch)
+    if epoch % switch_after_epochs == 0:
+        i = epoch // switch_after_epochs
+        print('i',i)
+        eta.assign(learning_rates[i if i < len(learning_rates) else -1])
+callback = k.callbacks.LambdaCallback(on_epoch_begin=change_learningrate)
 
 for run in range(runs):
     # Create model
-    model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
+    classification_model = models.compose_model(model_obj, localization_obj, stn_placement, loop, xtrn.shape[1:])
+
+    if rotate:
+        inp = k.layers.Input(shape=xtrn.shape[1:])
+        rotated = k.layers.Lambda(utils.rotate_tensor)(inp)
+        model = k.models.Model(inputs=inp, outputs=classification_model(rotated))
+    else:
+        model = classification_model
+
     model.compile(
-        k.optimizers.SGD(lr=learning_rates[0]),
+        tf.train.GradientDescentOptimizer(eta),
+        # k.optimizers.SGD(lr=learning_rates[0]),
         loss = tf.losses.softmax_cross_entropy,
         metrics = ['accuracy'],
     )
     print("Compiled:", model)
 
-    # Setup data
-    if rotate:
-        generator = k.preprocessing.image.ImageDataGenerator(rotation_range=90)
-    else:
-        generator = k.preprocessing.image.ImageDataGenerator()
-    trn_flow = generator.flow(xtrn, ytrn, batch_size=B, shuffle=True)
-    tst_flow = generator.flow(xtst, ytst, batch_size=B, shuffle=True)
-
-    # Train model
     k.backend.get_session().run(tf.global_variables_initializer())
 
+    # Train model
     epochs_to_train = int(it * B / samples)
     print('Training for epochs:', epochs_to_train)
     t = time.time()
-    history = model.fit_generator(
-        trn_flow, 
+    history = model.fit(
+        x = xtrn,
+        y = ytrn,
+        batch_size = 256,
         epochs = epochs_to_train,
+        shuffle = True,
+        callbacks = [callback]
         # validation_data = tst_flow,
-        callbacks = [change_lr]
     )
-
     steps_left = int(it - epochs_to_train * samples / B)
     print('Training for steps:', steps_left)
-    for i,(x,y) in enumerate(trn_flow):
-        if i >= steps_left:
-            break
-        train_batch = model.train_on_batch(x,y)
-    else:
-        raise Exception("Ran out of samples before steps")
+    model.fit(
+        x = xtrn[:B*steps_left],
+        y = ytrn[:B*steps_left],
+        batch_size = 256,
+        epochs = 1,
+        initial_epoch = epochs_to_train,
+        shuffle = True,
+        # callbacks = [change_lr]
+    )
     t = time.time() - t
     print('Time', t)
     print('Time per batch', t / it)
 
     # Evaluate model
     print('Evaluating...')
-    trn_res = model.evaluate_generator(trn_flow)
+    trn_res = model.evaluate(x=xtrn,y=ytrn,batch_size=256)
     print('Training accuracy:', trn_res)
-    tst_res = model.evaluate_generator(tst_flow)
+    tst_res = model.evaluate(x=xtst,y=ytst,batch_size=256)
     print('Test accuracy:', tst_res)
 
     print('Keys saved:', history.history.keys())
@@ -210,7 +220,7 @@ for run in range(runs):
     file.write('Test error: ' + str(tst_res) + '\n')
     file.write('Time: ' + str(t) + '\n')
 
-    model.save(directory + 'model.h5')
+    classification_model.save(directory + 'model.h5')
 
     db = dbm.dumb.open(directory + 'variables')
     with shelve.Shelf(db) as shelf:

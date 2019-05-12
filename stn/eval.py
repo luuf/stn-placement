@@ -11,7 +11,7 @@ import models
 
 #%% Restore data
 # directory = 'result'
-directory = '../testSerialization'
+directory = '../result'
 # directory = '../../legacy/CNNSTNmp'
 with shelve.open(directory + '/variables', flag='r') as shelf:
     try:
@@ -19,8 +19,8 @@ with shelve.open(directory + '/variables', flag='r') as shelf:
         samples = shelf['samples']
         B = shelf['B']
 
-        # data_fn = data.data_dic.get(shelf['dataset'])
-        # xtrn, ytrn, xtst, ytst = data_fn()
+        data_fn = data.data_dic.get(shelf['dataset'])
+        xtrn, ytrn, xtst, ytst = data_fn()
 
         # model_class = models.model_dic.get(shelf['model'])
         # model_obj = model_class(shelf['model_parameters'])
@@ -57,7 +57,7 @@ with tf.keras.utils.CustomObjectScope({'STN':models.STN}):
 # plt.plot(acc_val) 
 plt.plot(history['acc'])
 plt.figure()
-plt.plot(history['val_acc'])
+# plt.plot(history['val_acc'])
 plt.show()
 #%% functions
 def plotarray(arr):
