@@ -1,11 +1,16 @@
 #%%
 import tensorflow as tf
-from scipy.misc import imrotate
 import random
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 import models
 import data
+try:
+    from scipy.misc import imrotate
+    imrotate_imported = True
+except ImportError:
+    print("Not importing imrotate")
+    imrotate_imported = False
 
 def rotate_tensor(im,rad=None):
     assert len(im.shape) == 4, "Im must have 4 dimensions to be rotated"
@@ -20,6 +25,7 @@ def rotate_tensor(im,rad=None):
 
 def rotate_array(im,rad=None):
     assert im.ndim == 3, "Im must have 3 dimensions"
+    assert imrotate_imported, "Can't use imrotate, scipy not available"
     if rad is None:
         deg = random.uniform(-90,90)
     else:
