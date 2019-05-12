@@ -211,7 +211,7 @@ for run in range(runs):
     try:
         mkdir(directory)
     except FileExistsError:
-        print('Overwriting existing directory:',name)
+        print('Overwriting existing directory:',directory)
 
     file = open(directory + 'out.txt', 'w+')
     file.write('Training error: ' + str(trn_res) + '\n')
