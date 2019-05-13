@@ -55,6 +55,10 @@ parser.add_argument(
     "--optimizer", '-o', type=str,
     help="Name of the optimizer"
 )
+parser.add_argument(
+    "--lr", type=float,
+    help="Constant learning rate to use. Default is 0.01, 0.001 0.0001"
+)
 
 loop_parser = parser.add_mutually_exclusive_group(required=False)
 loop_parser.add_argument(
@@ -136,7 +140,7 @@ print('Name:', name)
 
 if args.optimizer is None:
     print('Using default optimizer GradientDescentOptimizer')
-    args.optimizer = 'SGD'
+    args.optimizer = 'sgd'
 else:
     print('Using optimizer',args.optimizer)
 optimizer = {
@@ -145,6 +149,9 @@ optimizer = {
 }.get(args.optimizer)
 assert not optimizer is None, 'Could not find optimizer'
 
+learning_rate = args.lr
+print("Learning_rate", learning_rate or "default variable")
+
 assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
@@ -152,9 +159,13 @@ xtrn,ytrn,xtst,ytst = data_fn()
 samples = xtrn.shape[0]
 B = 256 # batch size
 
-learning_rates = [0.01,0.001,0.0001]
-switch_after_it = 50000
-switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
+if learning_rate is None:
+    learning_rates = [0.01,0.001,0.0001]
+    switch_after_it = 50000
+    switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
+else:
+    learning_rates = [learning_rate]
+    switch_after_epochs = np.inf
 
 def compile_model(model,lr):
     model.compile(
@@ -202,9 +213,9 @@ for run in range(runs):
             batch_size = 256,
             epochs = final_epoch,
             shuffle = True,
-            initial_epoch = epochs_trained
+            initial_epoch = epochs_trained,
+            validation_data = (xtst,ytst)
             # callbacks = [change_lr]
-            # validation_data = tst_flow,
         )
         histories.append(history.history)
         epochs_trained = final_epoch

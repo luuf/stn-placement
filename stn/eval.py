@@ -12,7 +12,7 @@ import models
 #%% Restore data
 # directory = 'result'
 # directory = '../result'
-directory = '../experiments/cifar0'
+directory = '../experiments/cifarAdam0'
 with shelve.open(directory + '/variables', flag='r') as shelf:
     try:
         history = shelf['history']
