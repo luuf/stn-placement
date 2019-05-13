@@ -52,7 +52,7 @@ parser.add_argument(
     help="Name to save directory in"
 )
 parser.add_argument(
-    "--optimizer", 'o', type=str,
+    "--optimizer", '-o', type=str,
     help="Name of the optimizer"
 )
 
