@@ -228,7 +228,8 @@ for run in range(runs):
             batch_size = 256,
             epochs = epochs_to_train + 1,
             initial_epoch = epochs_to_train,
-            shuffle = True
+            shuffle = True,
+            validation_data = (xtst,ytst)
             # callbacks = [change_lr]
         )
         histories.append(history.history)
