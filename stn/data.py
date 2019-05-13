@@ -39,6 +39,12 @@ def ownrotated_mnist():
     ytst = np.array([[float(y == i) for i in range(10)] for y in data['y_test']])
     return (xtrn,xval,xtst,ytrn,yval,ytst)
 
+def oldmnist():
+    (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
+    xtrn = xtrn.reshape([xtrn.shape[0],28,28,1]) / 255
+    ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
+    return (xtrn[:50000],ytrn[:50000],xtrn[50000:],ytrn[50000:])
+
 def mnist():
     (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
     xtrn = xtrn.reshape([xtrn.shape[0],28,28,1]) / 255
@@ -58,5 +64,6 @@ def cifar10():
 
 data_dic = {
     'mnist':    mnist,
+    'oldmnist': oldmnist,
     'cifar10':  cifar10
 }
