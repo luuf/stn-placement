@@ -1,5 +1,5 @@
 import tensorflow as tf
-import tensorflow.keras as k
+import tensorflow.keras as k # pylint: disable=import-error
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 from functools import reduce
@@ -90,11 +90,31 @@ class CNN:
             # tf.layers.Dense(units = 10, activation = 'softmax')
         ]
 
+class CNN2:
+    def __init__(self, parameters = None):
+        self.parameters = [64,64,64]
+        if not parameters is None:
+            assert len(parameters) == len(self.parameters)
+            self.parameters = parameters
+
+    def get_layers(self):
+        return [
+            tf.layers.Conv2D(filters = self.parameters[0], kernel_size = (5,5), activation = activation_fn),
+            tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
+            tf.layers.Conv2D(filters = self.parameters[1], kernel_size = (5,5), activation = activation_fn),
+            tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
+            tf.layers.Conv2D(filters = self.parameters[2], kernel_size = (3,3), activation = activation_fn),
+            tf.layers.Flatten(),
+            tf.layers.Dense(units = 10, activation = activation_fn),
+            tf.layers.Dense(units = 10)
+            # tf.layers.Dense(units = 10, activation = 'softmax')
+        ]
 
 # read arguments
 model_dic = {
+    'FCN': FCN,
     'CNN': CNN,
-    'FCN': FCN
+    'CNN2': CNN2,
 }
 
 localization_dic = {
