@@ -5,6 +5,7 @@ import numpy as np
 from transformer import spatial_transformer_network as transformer
 import models
 import data
+from functools import reduce
 try:
     from scipy.misc import imrotate
     imrotate_imported = True
@@ -32,4 +33,9 @@ def rotate_array(im,rad=None):
         deg = rad * 180 / np.pi
     return imrotate(im, deg, 'bilinear')
 
+def concatenate_dictionaries(histories):
+    return reduce(
+        lambda d1,d2: {k: v + d2[k] for k,v in d1.items()},
+        histories
+    )
 #%%

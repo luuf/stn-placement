@@ -1,6 +1,6 @@
 #%% Import
 import tensorflow as tf
-import tensorflow.keras as k
+import tensorflow.keras as k # pylint: disable=import-error
 import numpy as np
 from transformer import spatial_transformer_network as transformer
 import time
@@ -140,14 +140,16 @@ B = 256 # batch size
 learning_rates = [0.01,0.001,0.0001]
 switch_after_it = 50000
 switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
-eta = tf.Variable(learning_rates[0],trainable=False)
-def change_learningrate(epoch,logs):
-    print('learning rate epoch', epoch)
-    if epoch % switch_after_epochs == 0:
-        i = epoch // switch_after_epochs
-        print('i',i)
-        eta.assign(learning_rates[i if i < len(learning_rates) else -1])
-callback = k.callbacks.LambdaCallback(on_epoch_begin=change_learningrate)
+
+def compile_model(model,lr):
+    model.compile(
+        tf.train.GradientDescentOptimizer(lr),
+        # k.optimizers.SGD(lr=learning_rates[0]),
+        # loss = k.losses.categorical_crossentropy,
+        # loss = lambda true,pred: k.losses.categorical_crossentropy(true,pred,from_logits=True),
+        loss = tf.losses.softmax_cross_entropy,
+        metrics = ['accuracy'],
+    )
 
 for run in range(runs):
     # Create model
@@ -158,12 +160,7 @@ for run in range(runs):
     else:
         model = classification_model
 
-    model.compile(
-        tf.train.GradientDescentOptimizer(eta),
-        # k.optimizers.SGD(lr=learning_rates[0]),
-        loss = tf.losses.softmax_cross_entropy,
-        metrics = ['accuracy'],
-    )
+    compile_model(model,learning_rates[0])
     print("Compiled:", model)
 
     k.backend.get_session().run(tf.global_variables_initializer())
@@ -171,27 +168,44 @@ for run in range(runs):
     # Train model
     epochs_to_train = int(it * B / samples)
     print('Training for epochs:', epochs_to_train)
+    print('Switching learning rate after', switch_after_epochs)
     t = time.time()
-    history = model.fit(
-        x = xtrn,
-        y = ytrn,
-        batch_size = 256,
-        epochs = epochs_to_train,
-        shuffle = True,
-        callbacks = [callback]
-        # validation_data = tst_flow,
-    )
+    epochs_trained = 0
+    histories = []
+    for i,lr in enumerate(learning_rates):
+        print('Learning rate', lr)
+        compile_model(model,lr)
+        final_epoch = min(
+            epochs_trained + switch_after_epochs,
+            epochs_to_train
+        )
+        if epochs_trained >= final_epoch:
+            break
+        history = model.fit(
+            x = xtrn,
+            y = ytrn,
+            batch_size = 256,
+            epochs = final_epoch,
+            shuffle = True,
+            initial_epoch = epochs_trained
+            # callbacks = [change_lr]
+            # validation_data = tst_flow,
+        )
+        histories.append(history.history)
+        epochs_trained = final_epoch
     steps_left = int(it - epochs_to_train * samples / B)
     print('Training for steps:', steps_left)
-    model.fit(
-        x = xtrn[:B*steps_left],
-        y = ytrn[:B*steps_left],
-        batch_size = 256,
-        epochs = 1,
-        initial_epoch = epochs_to_train,
-        shuffle = True
-        # callbacks = [change_lr]
-    )
+    if steps_left > 0:
+        history = model.fit(
+            x = xtrn[:B*steps_left],
+            y = ytrn[:B*steps_left],
+            batch_size = 256,
+            epochs = epochs_to_train + 1,
+            initial_epoch = epochs_to_train,
+            shuffle = True
+            # callbacks = [change_lr]
+        )
+        histories.append(history.history)
     t = time.time() - t
     print('Time', t)
     print('Time per batch', t / it)
@@ -225,7 +239,7 @@ for run in range(runs):
 
     db = dbm.dumb.open(directory + 'variables')
     with shelve.Shelf(db) as shelf:
-        shelf['history'] = history.history
+        shelf['history'] = utils.concatenate_dictionaries(histories)
         shelf['samples'] = samples
         shelf['B'] = B
 
