@@ -51,6 +51,10 @@ parser.add_argument(
     "--name", '-n', type=str, 
     help="Name to save directory in"
 )
+parser.add_argument(
+    "--optimizer", 'o', type=str,
+    help="Name of the optimizer"
+)
 
 loop_parser = parser.add_mutually_exclusive_group(required=False)
 loop_parser.add_argument(
@@ -130,6 +134,17 @@ print('Rotate:', bool(rotate))
 name = args.name or 'result'
 print('Name:', name)
 
+if args.optimizer is None:
+    print('Using default optimizer GradientDescentOptimizer')
+    args.optimizer = 'SGD'
+else:
+    print('Using optimizer',args.optimizer)
+optimizer = {
+    'sgd': tf.train.GradientDescentOptimizer,
+    'adam': tf.train.AdamOptimizer
+}.get(args.optimizer)
+assert not optimizer is None, 'Could not find optimizer'
+
 assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
@@ -143,7 +158,7 @@ switch_after_epochs = int(B * switch_after_it / samples) # automatical floor
 
 def compile_model(model,lr):
     model.compile(
-        tf.train.GradientDescentOptimizer(lr),
+        optimizer(lr),
         # k.optimizers.SGD(lr=learning_rates[0]),
         # loss = k.losses.categorical_crossentropy,
         # loss = lambda true,pred: k.losses.categorical_crossentropy(true,pred,from_logits=True),
