@@ -75,7 +75,7 @@ class CNN2_localization:
             tf.layers.Dense(units=self.parameters[2], activation=activation_fn),
         ]
 
-def no_stn(parameters = None):
+def no_stn(parameters = None, dropout = None):
     assert parameters is None
     return False
 
