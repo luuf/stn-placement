@@ -12,7 +12,7 @@ import models
 #%% Restore data
 # directory = 'result'
 # directory = '../result'
-directory = '../experiments/cifarAdam0'
+directory = '../experiments/cifarAdamSTN0'
 with shelve.open(directory + '/variables', flag='r') as shelf:
     try:
         history = shelf['history']
@@ -52,12 +52,11 @@ with tf.keras.utils.CustomObjectScope({'STN':models.STN}):
         }
     )
 
-#%%
 # plt.plot(trn_val)
 # plt.plot(acc_val) 
 plt.plot(history['acc'])
 plt.figure()
-# plt.plot(history['val_acc'])
+plt.plot(history['val_acc'])
 plt.show()
 #%% functions
 def plotarray(arr):

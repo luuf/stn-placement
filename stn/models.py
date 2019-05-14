@@ -9,7 +9,8 @@ activation_fn = tf.nn.relu
 
 # localization architecture
 class Small_localization:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
         self.parameters = [32]
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
@@ -21,7 +22,8 @@ class Small_localization:
         ]
 
 class FCN_localization:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
         self.parameters = [32,32,32]
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
@@ -36,7 +38,8 @@ class FCN_localization:
         ]
 
 class CNN_localization:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
         self.parameters = [20,20,20]
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
@@ -51,19 +54,41 @@ class CNN_localization:
             tf.layers.Dense(units=self.parameters[2], activation=activation_fn),
         ]
 
+class CNN2_localization:
+    def __init__(self, parameters = None, dropout = None):
+        self.parameters = [20,20,20]
+        self.dropout = dropout or 0
+        if not parameters is None:
+            assert len(parameters) == len(self.parameters)
+            self.parameters = parameters
+
+    def get_layers(self):
+        return [
+            # k.layers.Dropout(self.dropout),
+            tf.layers.Conv2D(filters=self.parameters[0], kernel_size=(5,5), activation=activation_fn),
+            tf.layers.MaxPooling2D(pool_size=2, strides=2),
+            # k.layers.Dropout(self.dropout),
+            tf.layers.Conv2D(filters=self.parameters[1], kernel_size=(5,5), activation=activation_fn),
+            tf.layers.MaxPooling2D(pool_size=2, strides=2),
+            tf.layers.Flatten(),
+            # k.layers.Dropout(self.dropout),
+            tf.layers.Dense(units=self.parameters[2], activation=activation_fn),
+        ]
+
 def no_stn(parameters = None):
     assert parameters is None
     return False
 
 # classification architecture
 class FCN:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
         self.parameters = [256,200]
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
             self.parameters = parameters
 
-    def get_layers(self, parameters = None):
+    def get_layers(self, parameters = None, dropout = None):
         return [
             tf.layers.Flatten(),
             tf.layers.Dense(units = self.parameters[0], activation = activation_fn),
@@ -73,7 +98,8 @@ class FCN:
         ]
 
 class CNN:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
         self.parameters = [64,64]
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
@@ -91,20 +117,25 @@ class CNN:
         ]
 
 class CNN2:
-    def __init__(self, parameters = None):
+    def __init__(self, parameters = None, dropout = None):
         self.parameters = [64,64,64]
+        self.dropout = dropout or 0
         if not parameters is None:
             assert len(parameters) == len(self.parameters)
             self.parameters = parameters
 
     def get_layers(self):
         return [
+            k.layers.Dropout(self.dropout),
             tf.layers.Conv2D(filters = self.parameters[0], kernel_size = (5,5), activation = activation_fn),
             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
+            k.layers.Dropout(self.dropout),
             tf.layers.Conv2D(filters = self.parameters[1], kernel_size = (5,5), activation = activation_fn),
             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
+            k.layers.Dropout(self.dropout),
             tf.layers.Conv2D(filters = self.parameters[2], kernel_size = (3,3), activation = activation_fn),
             tf.layers.Flatten(),
+            k.layers.Dropout(self.dropout),
             tf.layers.Dense(units = 10, activation = activation_fn),
             tf.layers.Dense(units = 10)
             # tf.layers.Dense(units = 10, activation = 'softmax')
@@ -119,6 +150,7 @@ model_dic = {
 
 localization_dic = {
     'CNN':   CNN_localization,
+    'CNN2':  CNN2_localization,
     'FCN':   FCN_localization,
     'small': Small_localization,
     'false': no_stn

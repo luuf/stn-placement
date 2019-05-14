@@ -59,6 +59,10 @@ parser.add_argument(
     "--lr", type=float,
     help="Constant learning rate to use. Default is 0.01, 0.001 0.0001"
 )
+parser.add_argument(
+    "--dropout", type=float,
+    help="Fraction of units to drop. Default is to not use dropout at all."
+)
 
 loop_parser = parser.add_mutually_exclusive_group(required=False)
 loop_parser.add_argument(
@@ -94,6 +98,10 @@ else:
 data_fn = data.data_dic.get(args.dataset)
 assert not (data_fn is None), 'Could not find dataset'
 
+dropout = args.dropout
+if dropout is not None:
+    print('Using dropout', dropout)
+
 if args.model is None:
     print('Using default model: CNN')
     args.model = 'CNN'
@@ -102,7 +110,7 @@ else:
 model_class = models.model_dic.get(args.model)
 assert not (model_class is None), 'Could not find model'
 
-model_obj = model_class(args.model_parameters)
+model_obj = model_class(args.model_parameters, dropout)
 if args.model_parameters is None:
     print('Using default parameters')
     args.model_parameters = model_obj.parameters
@@ -115,7 +123,7 @@ else:
 localization_class = models.localization_dic.get(args.localization)
 assert not (localization_class is None), 'Could not find localization'
 
-localization_obj = localization_class(args.localization_parameters)
+localization_obj = localization_class(args.localization_parameters, dropout)
 if localization_obj and args.localization_parameters is None:
     print('Using default parameters')
     args.localization_parameters = localization_obj.parameters
@@ -153,6 +161,10 @@ learning_rate = args.lr
 print("Learning_rate", learning_rate or "default variable")
 
 assert localization_class or (not stn_placement and not loop)
+
+
+
+
 
 #%% Setup
 xtrn,ytrn,xtst,ytst = data_fn()
