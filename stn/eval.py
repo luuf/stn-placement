@@ -12,7 +12,7 @@ import models
 #%% Restore data
 # directory = 'result'
 # directory = '../result'
-directory = '../experiments/cifarAdamSTN0'
+directory = '../experiments/cifarAdamSTN1'
 with shelve.open(directory + '/variables', flag='r') as shelf:
     try:
         history = shelf['history']
@@ -24,13 +24,10 @@ with shelve.open(directory + '/variables', flag='r') as shelf:
 
         # model_class = models.model_dic.get(shelf['model'])
         # model_obj = model_class(shelf['model_parameters'])
-
         # localization_class = models.model_dic.get(shelf['localization'])
         # localization_obj = localization_class(shelf['localization_parameters'])
-
         # it = shelf['iterations']
         # rotate = shelf['rotate'] 
-
         # model = models.compose_model(
         #     model_obj,
         #     localization_obj,
@@ -52,12 +49,12 @@ with tf.keras.utils.CustomObjectScope({'STN':models.STN}):
         }
     )
 
-# plt.plot(trn_val)
-# plt.plot(acc_val) 
 plt.plot(history['acc'])
 plt.figure()
 plt.plot(history['val_acc'])
 plt.show()
+
+#%% Legacy eval-functions, that only works with old experimental data
 #%% functions
 def plotarray(arr):
     side = int(np.sqrt(np.size(arr)) + 0.5)

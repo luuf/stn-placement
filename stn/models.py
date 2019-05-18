@@ -126,7 +126,6 @@ class CNN2:
 
     def get_layers(self):
         return [
-            k.layers.Dropout(self.dropout),
             tf.layers.Conv2D(filters = self.parameters[0], kernel_size = (5,5), activation = activation_fn),
             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
             k.layers.Dropout(self.dropout),
