@@ -1,7 +1,6 @@
 #%%
 import torch as t
 import numpy as np
-from transformer import spatial_transformer_network as transformer
 from functools import reduce
 # import utils
 

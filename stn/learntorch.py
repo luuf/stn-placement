@@ -2,10 +2,7 @@
 import torch as t
 import torchvision as tv
 import numpy as np
-from transformer import spatial_transformer_network as transformer
 import time
-import shelve
-import dbm.dumb
 import datatorch as data
 import modelstorch as models
 # import utils
