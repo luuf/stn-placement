@@ -205,7 +205,6 @@ def train(epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
-    print('train acc', history['train_acc'])
 
 def test(epoch = None):
     cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
