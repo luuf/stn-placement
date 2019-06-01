@@ -187,7 +187,7 @@ history = {
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device)
+        data, target = data.to(device), target.to(device) 
         optimizer.zero_grad()
         output = model(data)
         loss = cross_entropy(output, target)
@@ -199,7 +199,7 @@ def train(epoch):
         pred = output.max(1, keepdim=True)[1]
         history['train_acc'][epoch] += pred.eq(target.view_as(pred)).sum().item()
 
-        if batch_idx % 50 == 0:
+        if batch_idx % 50 == 0 and device == t.device("cpu"): # pylint: disable=no-member
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -264,7 +264,11 @@ for run in range(runs):
         scheduler.step()
         if epoch % 100 == 0:
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
-
+            print(
+                'Saved model at epoch', epoch, '\n'
+                'Train',history['train_acc'][epoch],
+                'Test', history['test_acc'][epoch]
+            )
     total_time = time.time() - start_time
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
@@ -284,7 +288,7 @@ t.save({
     'localization_parameters': args.localization_parameters,
     'stn_placement': stn_placement,
     'loop': loop,
+    'learning_rate': learning_rate,
     'epochs': epochs,
-    'history': history
 }, directory + 'model_details')
 

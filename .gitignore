@@ -111,5 +111,5 @@ experiments*
 .DS_Store
 .vscode
 result* # default folder to store experiments in
-MNIST*  # pytorch data file
+stn/MNIST  # pytorch data file
 *.sh   # ignore scripts used to run things on clusters
