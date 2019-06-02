@@ -16,6 +16,14 @@ class Flatten(t.nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
 
+class Downsample(t.nn.Module):
+    def forward(self, input):
+        return t.nn.functional.interpolate(
+            input,
+            scale_factor=0.5,
+            mode='bilinear'
+        )
+
 # localization architecture
 class Small_localization:
     def __init__(self, parameters = None, dropout = None):
@@ -61,13 +69,16 @@ class CNN_localization:
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
+            Downsample(), # DOWNSAMPLING
             t.nn.Conv2d(in_shape[0], self.parameters[0], kernel_size=(5,5)),
             t.nn.MaxPool2d(kernel_size=2, stride=2),
             afn(),
             t.nn.Conv2d(self.parameters[0], self.parameters[1], kernel_size=(5,5)),
             afn(),
             Flatten(),
-            t.nn.Linear(self.parameters[1] * 8 * 8, self.parameters[2]),
+            t.nn.Linear(
+                self.parameters[1], # should be multiplied with 8*8, if not downsampled
+                self.parameters[2]),
             afn()
         ])
 
