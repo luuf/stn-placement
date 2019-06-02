@@ -10,13 +10,14 @@ import PIL
 #     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
 #     return (xtrn[:50000],ytrn[:50000],xtrn[50000:],ytrn[50000:])
 
-def mnist(rotate=True):
+def mnist(rotate=True,normalize=False):
     transforms = [
         tv.transforms.ToTensor(),
-        tv.transforms.Normalize((0.1307,), (0.3081,)) # subtracts first number and divides with second
     ]
     if rotate:
-        transforms.insert(0,tv.transforms.RandomRotation(90 if rotate else 0, resample=PIL.Image.BILINEAR))
+        transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
+    if normalize:
+        transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # subtracts first number and divides with second
     train_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
             root='.', train=True, download=True,
