@@ -202,7 +202,7 @@ class Net(t.nn.Module):
     def stn(self, x, y = None):
         theta = self.localization(x)
         theta = theta.view(-1, 2, 3)
-        to_transform = y or x
+        to_transform = x if y is None else y
         grid = t.nn.functional.affine_grid(theta, to_transform.size())
         return t.nn.functional.grid_sample(to_transform, grid)
     
