@@ -109,7 +109,7 @@ model_class = models.model_dic.get(args.model)
 assert not (model_class is None), 'Could not find model'
 
 model_obj = model_class(args.model_parameters, dropout)
-if args.model_parameters is None:
+if args.model_parameters is None or args.model_parameters == []:
     print('Using default parameters')
     args.model_parameters = model_obj.parameters
 
@@ -122,7 +122,9 @@ localization_class = models.localization_dic.get(args.localization)
 assert not (localization_class is None), 'Could not find localization'
 
 localization_obj = localization_class(args.localization_parameters, dropout)
-if localization_obj and args.localization_parameters is None:
+no_parameters = args.localization_parameters is None or args.localization_parameters == []
+assert localization_obj or no_parameters
+if localization_obj and no_parameters:
     print('Using default parameters')
     args.localization_parameters = localization_obj.parameters
 
@@ -232,7 +234,7 @@ def test(epoch = None):
     return test_loss, correct
 
 
-directory = name + '/'
+directory = 'experiments/' + name + '/'
 
 try:
     mkdir(directory)
