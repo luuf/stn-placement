@@ -10,7 +10,7 @@ import PIL
 #     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
 #     return (xtrn[:50000],ytrn[:50000],xtrn[50000:],ytrn[50000:])
 
-def mnist(rotate=True,normalize=False):
+def mnist(rotate=True,normalize=True):
     transforms = [
         tv.transforms.ToTensor(),
     ]
@@ -42,7 +42,7 @@ def cifar10(rotate=False,normalize=False):
     if rotate:
         transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
     if normalize:
-        transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # WRONG VALUES
+        raise Exception("Normalization not implemented")
     train_loader = t.utils.data.DataLoader(
         tv.datasets.CIFAR10(
             root='DATA', train=True, download=True,
