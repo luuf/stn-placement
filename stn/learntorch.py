@@ -161,7 +161,7 @@ print("Learning_rate", learning_rate or "default variable")
 assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
-train_loader, test_loader = data_fn(rotate)
+train_loader, test_loader = data_fn(rotate, normalize=True)
 input_shape = train_loader.dataset[0][0].shape[1:]
 
 if learning_rate is None:
