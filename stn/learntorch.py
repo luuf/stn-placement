@@ -21,7 +21,7 @@ parser.add_argument(
     help="Name of the model: CNN or FCN"
 )
 parser.add_argument(
-    "--model-parameters", type=list,
+    "--model-parameters", nargs="*", type=int,
     help="The number of neurons/filters to use in the model layers"
 )
 parser.add_argument(
@@ -29,7 +29,7 @@ parser.add_argument(
     help="Name of localization: FCN, CNN, small or none"
 )
 parser.add_argument(
-    "--localization-parameters", type=list,
+    "--localization-parameters", nargs="*", type=int,
     help="The number of neurons/filters to use in the localization layers"
 )
 parser.add_argument(
@@ -162,6 +162,7 @@ assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
 train_loader, test_loader = data_fn(rotate)
+input_shape = train_loader.dataset[0][0].shape[1:]
 
 if learning_rate is None:
     learning_rate = 0.01
@@ -262,7 +263,10 @@ for run in range(runs):
         train(epoch)
         test(epoch)
         scheduler.step()
+        for param_group in optimizer.param_groups:
+            print(param_group['lr'])
         if epoch % 100 == 0:
+            # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print(
                 'Saved model at epoch', epoch, '\n'
