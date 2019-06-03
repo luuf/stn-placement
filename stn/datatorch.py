@@ -20,14 +20,14 @@ def mnist(rotate=True,normalize=False):
         transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # subtracts first number and divides with second
     train_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
-            root='.', train=True, download=True,
+            root='DATA', train=True, download=True,
             transform=tv.transforms.Compose(transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
-            root='.', train=False, # download absent
+            root='DATA', train=False, # download absent
             transform=tv.transforms.Compose(transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
@@ -35,8 +35,29 @@ def mnist(rotate=True,normalize=False):
     return (train_loader, test_loader)
 
 
-def cifar10(rotate=False):
-    raise Exception('Cifar not implemented yet')
+def cifar10(rotate=False,normalize=False):
+    transforms = [
+        tv.transforms.ToTensor(),
+    ]
+    if rotate:
+        transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
+    if normalize:
+        transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # WRONG VALUES
+    train_loader = t.utils.data.DataLoader(
+        tv.datasets.CIFAR10(
+            root='DATA', train=True, download=True,
+            transform=tv.transforms.Compose(transforms)
+        ),
+        batch_size=256, shuffle=True, num_workers=4
+    )
+    test_loader = t.utils.data.DataLoader(
+        tv.datasets.CIFAR10(
+            root='DATA', train=False, # download absent
+            transform=tv.transforms.Compose(transforms)
+        ),
+        batch_size=256, shuffle=True, num_workers=4
+    )
+    return (train_loader, test_loader)
 
 
 data_dic = {
@@ -44,3 +65,7 @@ data_dic = {
     # 'oldmnist': oldmnist,
     'cifar10':  cifar10
 }
+
+cifar10()
+
+#%%

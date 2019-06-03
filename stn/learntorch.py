@@ -162,7 +162,7 @@ assert localization_class or (not stn_placement and not loop)
 
 #%% Setup
 train_loader, test_loader = data_fn(rotate, normalize=True)
-input_shape = train_loader.dataset[0][0].shape[1:]
+input_shape = train_loader.dataset[0][0].shape
 
 if learning_rate is None:
     learning_rate = 0.01
@@ -244,7 +244,8 @@ for run in range(runs):
     prefix = str(run) if runs > 1 else ''
 
     # Create model
-    model = models.Net(model_obj, localization_obj, stn_placement, loop).to(device)
+    model = models.Net(model_obj, localization_obj, stn_placement, loop, input_shape)
+    model = model.to(device)
 
     # initialize
 

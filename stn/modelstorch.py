@@ -68,6 +68,8 @@ class CNN_localization:
             self.parameters = parameters
 
     def get_layers(self, in_shape):
+        final_in = self.parameters[1] * ((in_shape[1]/2-4)/2 - 4)**2
+        assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
         return t.nn.ModuleList([
             Downsample(), # DOWNSAMPLING
             t.nn.Conv2d(in_shape[0], self.parameters[0], kernel_size=(5,5)),
@@ -76,9 +78,7 @@ class CNN_localization:
             t.nn.Conv2d(self.parameters[0], self.parameters[1], kernel_size=(5,5)),
             afn(),
             Flatten(),
-            t.nn.Linear(
-                self.parameters[1], # should be multiplied with 8*8, if not downsampled
-                self.parameters[2]),
+            t.nn.Linear(int(final_in), self.parameters[2]),
             afn()
         ])
 
@@ -116,15 +116,14 @@ class FCN:
             assert len(parameters) == len(self.parameters)
             self.parameters = parameters
 
-    def get_layers(self, parameters = None, dropout = None):
+    def get_layers(self, in_shape):
         return t.nn.ModuleList([
             Flatten(),
-            t.nn.Linear(28*28, self.parameters[0]),
+            t.nn.Linear(np.prod(in_shape), self.parameters[0]),
             afn(),
             t.nn.Linear(self.parameters[0], self.parameters[1]),
             afn(),
             t.nn.Linear(self.parameters[1], 10)
-            # tf.layers.Dense(units = 10, activation = 'softmax')
         ])
 
 class CNN: # for mnist
@@ -135,17 +134,18 @@ class CNN: # for mnist
             assert len(parameters) == len(self.parameters)
             self.parameters = parameters
 
-    def get_layers(self):
+    def get_layers(self, in_shape):
+        final_in = self.parameters[1] * (((in_shape[1]-8)/2 - 6)/2)**2
+        assert final_in == int(final_in), 'Input shape not compatible with CNN'
         return t.nn.ModuleList([
-            t.nn.Conv2d(1, self.parameters[0], kernel_size = (9,9)),
+            t.nn.Conv2d(in_shape[0], self.parameters[0], kernel_size = (9,9)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
             t.nn.Conv2d(self.parameters[0], self.parameters[1], kernel_size = (7,7)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
             Flatten(),
-            t.nn.Linear(self.parameters[1] * 4, 10)
-            # tf.layers.Dense(units = 10, activation = 'softmax')
+            t.nn.Linear(int(final_in), 10)
         ])
 
 # class CNN2:
@@ -188,12 +188,13 @@ localization_dic = {
 }
 
 
+# import matplotlib.pyplot as plt
+
 class Net(t.nn.Module):
-    def __init__(self, layers_obj, localization_obj, stn_placement, loop):
+    def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape):
         super().__init__()
-        input_shape = [1,28,28]
-        # self.layers = layers_obj.get_layers()
-        layers = layers_obj.get_layers()
+        # self.layers = layers_obj.get_layers(input_shape)
+        layers = layers_obj.get_layers(input_shape)
         self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
         self.post_stn = t.nn.Sequential(*layers[stn_placement:])
         self.loop = loop
@@ -214,8 +215,13 @@ class Net(t.nn.Module):
         theta = self.localization(x)
         theta = theta.view(-1, 2, 3)
         to_transform = x if y is None else y
+        # plt.imshow(to_transform.detach()[0,0,:,:])
         grid = t.nn.functional.affine_grid(theta, to_transform.size())
-        return t.nn.functional.grid_sample(to_transform, grid)
+        transformed = t.nn.functional.grid_sample(to_transform, grid)
+        # plt.figure()
+        # plt.imshow(transformed.detach()[0,0,:,:])
+        # plt.show()
+        return transformed
     
     def forward(self, x):
         if self.localization:
