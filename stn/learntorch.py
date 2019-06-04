@@ -266,8 +266,6 @@ for run in range(runs):
         train(epoch)
         test(epoch)
         scheduler.step()
-        for param_group in optimizer.param_groups:
-            print(param_group['lr'])
         if epoch % 100 == 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
