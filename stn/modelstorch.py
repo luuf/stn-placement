@@ -82,6 +82,29 @@ class CNN_localization:
             afn()
         ])
 
+class CNN_localization2:
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
+        self.param = [20,40,80]
+        if not parameters is None:
+            assert len(parameters) == len(self.param)
+            self.param = parameters
+
+    def get_layers(self, in_shape):
+        final_in = self.param[1] * ((in_shape[1]/2-4)/2 - 4)**2
+        assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
+        return t.nn.ModuleList([
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
+            t.nn.MaxPool2d(kernel_size=2, stride=2),
+            afn(),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5)),
+            t.nn.MaxPool2d(kernel_size=2, stride=2),
+            afn(),
+            Flatten(),
+            t.nn.Linear(int(final_in), self.param[2]),
+            afn()
+        ])
+
 # class CNN2_localization:
 #     def __init__(self, parameters = None, dropout = None):
 #         self.param = [20,20,20]
@@ -198,6 +221,7 @@ model_dic = {
 
 localization_dic = {
     'CNN':   CNN_localization,
+    'CNN2':  CNN_localization2,
     # 'CNN2':  CNN2_localization,
     'FCN':   FCN_localization,
     'small': Small_localization,
