@@ -82,7 +82,7 @@ class CNN_localization:
             afn()
         ])
 
-class CNN_localization2:
+class CNN_localization2: # for cifar
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
         self.param = [20,40,80]
@@ -91,7 +91,7 @@ class CNN_localization2:
             self.param = parameters
 
     def get_layers(self, in_shape):
-        final_in = self.param[1] * ((in_shape[1]/2-4)/2 - 4)**2
+        final_in = self.param[1] * (((in_shape[1]-4)/2 - 4)/2)**2
         assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
         return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
