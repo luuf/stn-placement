@@ -28,79 +28,79 @@ class Downsample(t.nn.Module):
 class Small_localization:
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
-        self.parameters = [32]
+        self.param = [32]
         if not parameters is None:
-            assert len(parameters) == len(self.parameters)
-            self.parameters = parameters
+            assert len(parameters) == len(self.param)
+            self.param = parameters
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
             Flatten(),
-            t.nn.Linear(np.prod(in_shape), self.parameters[0]),
+            t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn()
         ])
 
 class FCN_localization:
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
-        self.parameters = [32,32,32]
+        self.param = [32,32,32]
         if not parameters is None:
-            assert len(parameters) == len(self.parameters)
-            self.parameters = parameters
+            assert len(parameters) == len(self.param)
+            self.param = parameters
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
             Flatten(),
-            t.nn.Linear(np.prod(in_shape), self.parameters[0]),
+            t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn(),
-            t.nn.Linear(self.parameters[0], self.parameters[1]),
+            t.nn.Linear(self.param[0], self.param[1]),
             afn(),
-            t.nn.Linear(self.parameters[1], self.parameters[2]),
+            t.nn.Linear(self.param[1], self.param[2]),
             afn()
         ])
 
 class CNN_localization:
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
-        self.parameters = [20,20,20]
+        self.param = [20,20,20]
         if not parameters is None:
-            assert len(parameters) == len(self.parameters)
-            self.parameters = parameters
+            assert len(parameters) == len(self.param)
+            self.param = parameters
 
     def get_layers(self, in_shape):
-        final_in = self.parameters[1] * ((in_shape[1]/2-4)/2 - 4)**2
+        final_in = self.param[1] * ((in_shape[1]/2-4)/2 - 4)**2
         assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
         return t.nn.ModuleList([
             Downsample(), # DOWNSAMPLING
-            t.nn.Conv2d(in_shape[0], self.parameters[0], kernel_size=(5,5)),
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
             t.nn.MaxPool2d(kernel_size=2, stride=2),
             afn(),
-            t.nn.Conv2d(self.parameters[0], self.parameters[1], kernel_size=(5,5)),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5)),
             afn(),
             Flatten(),
-            t.nn.Linear(int(final_in), self.parameters[2]),
+            t.nn.Linear(int(final_in), self.param[2]),
             afn()
         ])
 
 # class CNN2_localization:
 #     def __init__(self, parameters = None, dropout = None):
-#         self.parameters = [20,20,20]
+#         self.param = [20,20,20]
 #         self.dropout = dropout or 0
 #         if not parameters is None:
-#             assert len(parameters) == len(self.parameters)
-#             self.parameters = parameters
+#             assert len(parameters) == len(self.param)
+#             self.param = parameters
 
 #     def get_layers(self):
 #         return [
 #             # k.layers.Dropout(self.dropout),
-#             tf.layers.Conv2D(filters=self.parameters[0], kernel_size=(5,5), activation=activation_fn),
+#             tf.layers.Conv2D(filters=self.param[0], kernel_size=(5,5), activation=activation_fn),
 #             tf.layers.MaxPooling2D(pool_size=2, strides=2),
 #             # k.layers.Dropout(self.dropout),
-#             tf.layers.Conv2D(filters=self.parameters[1], kernel_size=(5,5), activation=activation_fn),
+#             tf.layers.Conv2D(filters=self.param[1], kernel_size=(5,5), activation=activation_fn),
 #             tf.layers.MaxPooling2D(pool_size=2, strides=2),
 #             tf.layers.Flatten(),
 #             # k.layers.Dropout(self.dropout),
-#             tf.layers.Dense(units=self.parameters[2], activation=activation_fn),
+#             tf.layers.Dense(units=self.param[2], activation=activation_fn),
 #         ]
 
 def no_stn(parameters = None, dropout = None):
@@ -111,72 +111,89 @@ def no_stn(parameters = None, dropout = None):
 class FCN:
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
-        self.parameters = [256,200]
+        self.param = [256,200]
         if not parameters is None:
-            assert len(parameters) == len(self.parameters)
-            self.parameters = parameters
+            assert len(parameters) == len(self.param)
+            self.param = parameters
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
             Flatten(),
-            t.nn.Linear(np.prod(in_shape), self.parameters[0]),
+            t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn(),
-            t.nn.Linear(self.parameters[0], self.parameters[1]),
+            t.nn.Linear(self.param[0], self.param[1]),
             afn(),
-            t.nn.Linear(self.parameters[1], 10)
+            t.nn.Linear(self.param[1], 10)
         ])
 
-class CNN: # for mnist
+class CNN: # original for mnist, works for cifar
     def __init__(self, parameters = None, dropout = None):
         assert dropout is None
-        self.parameters = [64,64]
+        self.param = [64,64]
         if not parameters is None:
-            assert len(parameters) == len(self.parameters)
-            self.parameters = parameters
+            assert len(parameters) == len(self.param)
+            self.param = parameters
 
     def get_layers(self, in_shape):
-        final_in = self.parameters[1] * (((in_shape[1]-8)/2 - 6)/2)**2
+        final_in = self.param[1] * (((in_shape[1]-8)/2 - 6)/2)**2
         assert final_in == int(final_in), 'Input shape not compatible with CNN'
         return t.nn.ModuleList([
-            t.nn.Conv2d(in_shape[0], self.parameters[0], kernel_size = (9,9)),
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
-            t.nn.Conv2d(self.parameters[0], self.parameters[1], kernel_size = (7,7)),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
             Flatten(),
             t.nn.Linear(int(final_in), 10)
         ])
 
-# class CNN2:
-#     def __init__(self, parameters = None, dropout = None):
-#         self.parameters = [64,64,64]
-#         self.dropout = dropout or 0
-#         if not parameters is None:
-#             assert len(parameters) == len(self.parameters)
-#             self.parameters = parameters
 
-#     def get_layers(self):
-#         return [
-#             tf.layers.Conv2D(filters = self.parameters[0], kernel_size = (5,5), activation = activation_fn),
-#             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
-#             k.layers.Dropout(self.dropout),
-#             tf.layers.Conv2D(filters = self.parameters[1], kernel_size = (5,5), activation = activation_fn),
-#             tf.layers.MaxPooling2D(pool_size = 2, strides = 2),
-#             k.layers.Dropout(self.dropout),
-#             tf.layers.Conv2D(filters = self.parameters[2], kernel_size = (3,3), activation = activation_fn),
-#             tf.layers.Flatten(),
-#             k.layers.Dropout(self.dropout),
-#             tf.layers.Dense(units = 10, activation = activation_fn),
-#             tf.layers.Dense(units = 10)
-#             # tf.layers.Dense(units = 10, activation = 'softmax')
-#         ]
+class CNN2: # for cifar
+    def __init__(self, parameters = None, dropout = None):
+        assert dropout is None
+        self.param = [32,32,64,64,128,128]
+        if not parameters is None:
+            assert len(parameters) == len(self.param)
+            self.param = parameters
+
+    def get_layers(self, in_shape):
+        final_in = self.param[-1] * (in_shape[1]/2/2/2)**2
+        assert final_in == int(final_in), 'Input shape not compatible with CNN'
+        return t.nn.ModuleList([
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[0]),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[1]),
+            t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+
+            t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[2]),
+            t.nn.Conv2d(self.param[2], self.param[3], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[3]),
+            t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+
+            t.nn.Conv2d(self.param[3], self.param[4], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[4]),
+            t.nn.Conv2d(self.param[4], self.param[5], kernel_size = (3,3), padding=1),
+            afn(),
+            t.nn.BatchNorm2d(self.param[5]),
+            t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+
+            Flatten(),
+            t.nn.Linear(int(final_in), 10)
+        ])
 
 # read arguments
 model_dic = {
     'FCN': FCN,
     'CNN': CNN,
-    # 'CNN2': CNN2,
+    'CNN2': CNN2,
 }
 
 localization_dic = {
@@ -193,7 +210,7 @@ localization_dic = {
 class Net(t.nn.Module):
     def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape):
         super().__init__()
-        # self.layers = layers_obj.get_layers(input_shape)
+        # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
         layers = layers_obj.get_layers(input_shape)
         self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
         self.post_stn = t.nn.Sequential(*layers[stn_placement:])
@@ -232,8 +249,9 @@ class Net(t.nn.Module):
                 x = self.pre_stn(x)
                 x = self.stn(x)
 
-        # for i,layer in enumerate(self.layers):
-        #     print('Layer', i, ': ', layer)
-        #     x = layer(x)
+        # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
+            # print('Layer', i, ': ', layer)
+            # print('Shape', x.shape)
+            # x = layer(x)
         x = self.post_stn(x)
         return x

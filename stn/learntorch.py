@@ -111,7 +111,7 @@ assert not (model_class is None), 'Could not find model'
 model_obj = model_class(args.model_parameters, dropout)
 if args.model_parameters is None or args.model_parameters == []:
     print('Using default parameters')
-    args.model_parameters = model_obj.parameters
+    args.model_parameters = model_obj.param
 
 if args.localization is None:
     print('Using no spatial transformer network')
@@ -126,7 +126,7 @@ no_parameters = args.localization_parameters is None or args.localization_parame
 assert localization_obj or no_parameters
 if localization_obj and no_parameters:
     print('Using default parameters')
-    args.localization_parameters = localization_obj.parameters
+    args.localization_parameters = localization_obj.param
 
 stn_placement = args.stn_placement or 0
 print('STN-placement:', stn_placement)

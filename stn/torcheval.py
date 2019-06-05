@@ -1,34 +1,54 @@
 #%%
 import torch as t
 import modelstorch as models
+import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../torch_experiments/CNNfalse/"
-prefix = "0"
+directory = "../torch_experiments/rotatedCifar/STCNN/"
 
 d = t.load(directory+"model_details")
-model = models.Net(
-    models.model_dic[d['model']](d['model_parameters']),
-    models.localization_dic[d['localization']](d['localization_parameters']),
-    d['stn_placement'],
-    d['loop']
-)
-model.load_state_dict(t.load(
-    directory+prefix+"final",
-    map_location='cpu'
-))
-# model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
+trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
 
-history = t.load(directory + prefix + "history")
-# plt.plot(history['train_acc'][300:])
-# plt.plot(history['test_acc'][300:])
-plt.plot(history['train_loss'][400:])
-plt.plot(history['test_loss'][400:])
-plt.show()
-print('Max test_acc', np.argmax(history['test_acc']))
-print('Max train_acc', np.argmax(history['train_acc']))
-print('Final test_acc', history['test_acc'][-1])
-print('Final train_acc', history['train_acc'][-1])
+#%% Functions
+def get_model(prefix):
+    model = models.Net(
+        models.model_dic[d['model']](d['model_parameters']),
+        models.localization_dic[d['localization']](d['localization_parameters']),
+        d['stn_placement'],
+        d['loop'],
+        trainloader.dataset[0][0].shape
+    )
+    model.load_state_dict(t.load(
+        directory+str(prefix)+"final",
+        map_location='cpu'
+    ))
+    # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
+    return model
+
+def print_history(prefixes):
+    if type(prefixes) == int:
+        prefixes = [prefixes]
+    for prefix in prefixes:
+        history = t.load(directory + str(prefix) + "history")
+        print('PREFIX', prefix)
+        print('Max test_acc', np.argmax(history['test_acc']))
+        print('Max train_acc', np.argmax(history['train_acc']))
+        print('Final test_acc', history['test_acc'][-1])
+        print('Final train_acc', history['train_acc'][-1])
+        plt.plot(history['train_acc'][:])
+        plt.plot(history['test_acc'][:])
+        # plt.plot(history['train_loss'][:])
+        # plt.plot(history['test_loss'][:])
+        plt.show()
+
+def test_stn(model, n=1):
+    batch = next(iter(trainloader))[0][:n]
+    for image,transformed in zip(batch, model.stn(model.pre_stn(batch), batch)):
+        plt.subplot(1,2,1)
+        plt.imshow(np.moveaxis(np.array(image),0,-1))
+        plt.subplot(1,2,2)
+        plt.imshow(np.moveaxis(transformed.detach().numpy(),0,-1))
+        plt.show()
 
 #%%
