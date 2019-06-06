@@ -178,15 +178,11 @@ device = t.device("cuda" if t.cuda.is_available() else "cpu") # pylint: disable=
 
 cross_entropy = t.nn.CrossEntropyLoss()
 
+# These need to be defined before train and test
 optimizer = None
 scheduler = None
+history = None
 
-history = {
-    'train_loss': np.zeros(epochs,),
-    'test_loss': np.zeros(epochs,),
-    'train_acc': np.zeros(epochs,),
-    'test_acc': np.zeros(epochs,)
-}
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -243,7 +239,15 @@ except FileExistsError:
     print('Overwriting existing directory', directory)
 
 for run in range(runs):
+
     prefix = str(run) if runs > 1 else ''
+
+    history = {
+        'train_loss': np.zeros(epochs,),
+        'test_loss': np.zeros(epochs,),
+        'train_acc': np.zeros(epochs,),
+        'test_acc': np.zeros(epochs,)
+    }
 
     # Create model
     model = models.Net(model_obj, localization_obj, stn_placement, loop, input_shape)
@@ -278,7 +282,9 @@ for run in range(runs):
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
 
+    print('Train accuracy:', history['test_acc'][-1])
     print('Test accuracy:', history['test_acc'][-1])
+    print()
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')

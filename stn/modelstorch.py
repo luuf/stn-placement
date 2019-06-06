@@ -191,6 +191,7 @@ class CNN2: # for cifar
             afn(),
             t.nn.BatchNorm2d(self.param[1]),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+            t.nn.Dropout2d(0.2),
 
             t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3), padding=1),
             afn(),
@@ -199,6 +200,7 @@ class CNN2: # for cifar
             afn(),
             t.nn.BatchNorm2d(self.param[3]),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+            t.nn.Dropout2d(0.3),
 
             t.nn.Conv2d(self.param[3], self.param[4], kernel_size = (3,3), padding=1),
             afn(),
@@ -207,6 +209,7 @@ class CNN2: # for cifar
             afn(),
             t.nn.BatchNorm2d(self.param[5]),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+            t.nn.Dropout2d(0.4),
 
             Flatten(),
             t.nn.Linear(int(final_in), 10)

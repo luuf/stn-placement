@@ -5,7 +5,7 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../torch_experiments/rotatedCifar/STCNN/"
+directory = "../experiments/cifarCNN2/STCNN/"
 
 d = t.load(directory+"model_details")
 trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
@@ -43,6 +43,8 @@ def print_history(prefixes):
         plt.show()
 
 def test_stn(model, n=1):
+    if type(model) == int:
+        model = get_model(model)
     batch = next(iter(trainloader))[0][:n]
     for image,transformed in zip(batch, model.stn(model.pre_stn(batch), batch)):
         plt.subplot(1,2,1)
