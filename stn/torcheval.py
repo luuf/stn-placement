@@ -5,11 +5,10 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../experiments/cifarCNN2/STCNN/"
+directory = "../experiments/dropout/STCNN/"
 
 d = t.load(directory+"model_details")
 trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
-
 #%% Functions
 def get_model(prefix):
     model = models.Net(
@@ -26,7 +25,7 @@ def get_model(prefix):
     # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
     return model
 
-def print_history(prefixes):
+def print_history(prefixes=[0,1,2]):
     if type(prefixes) == int:
         prefixes = [prefixes]
     for prefix in prefixes:

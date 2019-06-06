@@ -95,11 +95,13 @@ class CNN_localization2: # for cifar
         assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
         return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
-            t.nn.MaxPool2d(kernel_size=2, stride=2),
             afn(),
+            t.nn.BatchNorm2d(self.param[0]),
+            t.nn.MaxPool2d(kernel_size=2, stride=2),
             t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5)),
-            t.nn.MaxPool2d(kernel_size=2, stride=2),
             afn(),
+            t.nn.BatchNorm2d(self.param[1]),
+            t.nn.MaxPool2d(kernel_size=2, stride=2),
             Flatten(),
             t.nn.Linear(int(final_in), self.param[2]),
             afn()
