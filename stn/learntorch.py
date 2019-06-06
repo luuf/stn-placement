@@ -282,7 +282,7 @@ for run in range(runs):
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
 
-    print('Train accuracy:', history['test_acc'][-1])
+    print('Train accuracy:', history['train_acc'][-1])
     print('Test accuracy:', history['test_acc'][-1])
     print()
 
