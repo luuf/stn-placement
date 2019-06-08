@@ -160,8 +160,7 @@ class CNN: # original for mnist, works for cifar
             self.param = parameters
 
     def get_layers(self, in_shape):
-        final_in = self.param[1] * (((in_shape[1]-8)/2 - 6)/2)**2
-        assert final_in == int(final_in), 'Input shape not compatible with CNN'
+        final_in = self.param[1] * int((int((in_shape[1]-8)/2) - 6)/2)**2
         return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
@@ -239,7 +238,6 @@ localization_dic = {
 class Net(t.nn.Module):
     def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape):
         super().__init__()
-        # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
         layers = layers_obj.get_layers(input_shape)
         self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
         self.post_stn = t.nn.Sequential(*layers[stn_placement:])
@@ -256,6 +254,8 @@ class Net(t.nn.Module):
             self.localization = t.nn.Sequential(localization, parameters)
         else:
             self.localization = None
+
+        # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
     def stn(self, x, y = None):
         theta = self.localization(x)
@@ -279,8 +279,8 @@ class Net(t.nn.Module):
                 x = self.stn(x)
 
         # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
-            # print('Layer', i, ': ', layer)
-            # print('Shape', x.shape)
-            # x = layer(x)
+        #     print('Layer', i, ': ', layer)
+        #     print('Shape', x.shape)
+        #     x = layer(x)
         x = self.post_stn(x)
         return x

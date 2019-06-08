@@ -5,7 +5,7 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../experiments/dropout/STCNN/"
+directory = "../experiments/dropout2/STCNN6loop/"
 
 d = t.load(directory+"model_details")
 trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
