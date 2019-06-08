@@ -254,6 +254,12 @@ class Net(t.nn.Module):
             self.localization = t.nn.Sequential(localization, parameters)
         else:
             self.localization = None
+        
+        if input_shape[-1] > 40:
+            print("Will downsample, since the width is",input_shape[-1])
+            self.downsample = Downsample
+        else:
+            self.downsample = None
 
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
@@ -261,12 +267,14 @@ class Net(t.nn.Module):
         theta = self.localization(x)
         theta = theta.view(-1, 2, 3)
         to_transform = x if y is None else y
-        # plt.imshow(to_transform.detach()[0,0,:,:])
         grid = t.nn.functional.affine_grid(theta, to_transform.size())
         transformed = t.nn.functional.grid_sample(to_transform, grid)
+        # plt.imshow(to_transform.detach()[0,0,:,:])
         # plt.figure()
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.show()
+        if self.downsample:
+            transformed = self.downsample(transformed)
         return transformed
     
     def forward(self, x):
