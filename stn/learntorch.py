@@ -286,13 +286,13 @@ for run in range(runs):
     print('Train accuracy:', history['train_acc'][-1])
     print('Test accuracy:', history['test_acc'][-1])
     print()
-    final_accuracies['train'][run] = ['train_acc'][-1]
-    final_accuracies['test'][run] = ['test_acc'][-1]
+    final_accuracies['train'].append(['train_acc'][-1])
+    final_accuracies['test'].append(['test_acc'][-1])
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
 
-for run in runs:
+for run in range(runs):
     print('Train accuracy:', final_accuracies['train'][run])
     print('Test accuracy:', final_accuracies['test'][run])
 # Save model details
