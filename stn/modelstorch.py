@@ -257,7 +257,7 @@ class Net(t.nn.Module):
         
         if input_shape[-1] > 40:
             print("Will downsample, since the width is",input_shape[-1])
-            self.downsample = Downsample
+            self.downsample = Downsample()
         else:
             self.downsample = None
 

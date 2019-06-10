@@ -48,16 +48,9 @@ def translated_mnist(rotate=False,normalize=False):
 
 
 def cifar10(rotate=False,normalize=False,augment=False):
-    transforms = [
-        tv.transforms.ToTensor(),
-    ]
-    if rotate:
-        transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
     if normalize:
         raise Exception("Normalization not implemented")
     if augment:
-        assert rotate is False
-        assert normalize is False
         train_transforms = [
             tv.transforms.RandomHorizontalFlip(),
             tv.transforms.RandomAffine(
@@ -69,10 +62,13 @@ def cifar10(rotate=False,normalize=False,augment=False):
             ),
             tv.transforms.ToTensor(),
         ]
-        test_transforms = transforms
+        test_transforms = [tv.transforms.ToTensor()]
     else:
-        train_transforms = transforms
-        test_transforms = transforms
+        train_transforms = [tv.transforms.ToTensor()]
+        test_transforms = [tv.transforms.ToTensor()]
+    if rotate:
+        train_transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
+        test_transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
     train_loader = t.utils.data.DataLoader(
         tv.datasets.CIFAR10(
             root='DATA', train=True, download=True,
@@ -90,9 +86,8 @@ def cifar10(rotate=False,normalize=False,augment=False):
     return (train_loader, test_loader)
 
 def augmented_cifar(rotate=False,normalize=False,augment=False):
-    assert rotate is False
     assert normalize is False
-    return cifar10(False,False,True)
+    return cifar10(rotate,False,True)
 
 data_dic = {
     'mnist': mnist,
