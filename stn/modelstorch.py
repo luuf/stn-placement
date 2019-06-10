@@ -273,12 +273,12 @@ class Net(t.nn.Module):
         to_transform = x if y is None else y
         grid = t.nn.functional.affine_grid(theta, to_transform.size())
         transformed = t.nn.functional.grid_sample(to_transform, grid)
-        # plt.imshow(to_transform.detach()[0,0,:,:])
-        # plt.figure()
-        # plt.imshow(transformed.detach()[0,0,:,:])
-        # plt.show()
         if self.downsample:
             transformed = self.downsample(transformed)
+        # plt.imshow(transformed.detach()[0,0,:,:])
+        # plt.figure()
+        # plt.imshow(to_transform.detach()[0,0,:,:])
+        # plt.show()
         return transformed
     
     def forward(self, x):
