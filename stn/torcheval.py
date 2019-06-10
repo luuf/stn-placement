@@ -5,7 +5,7 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../experiments/dropout2/STCNN6loop/"
+directory = "../experiments/augment/CNNfalse/"
 
 d = t.load(directory+"model_details")
 trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
@@ -25,7 +25,7 @@ def get_model(prefix):
     # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
     return model
 
-def print_history(prefixes=[0,1,2]):
+def print_history(prefixes=[0,1,2],loss=False,start=0):
     if type(prefixes) == int:
         prefixes = [prefixes]
     for prefix in prefixes:
@@ -35,10 +35,12 @@ def print_history(prefixes=[0,1,2]):
         print('Max train_acc', np.argmax(history['train_acc']))
         print('Final test_acc', history['test_acc'][-1])
         print('Final train_acc', history['train_acc'][-1])
-        plt.plot(history['train_acc'][:])
-        plt.plot(history['test_acc'][:])
-        # plt.plot(history['train_loss'][:])
-        # plt.plot(history['test_loss'][:])
+        if loss:
+            plt.plot(history['train_loss'][start:])
+            plt.plot(history['test_loss'][start:])
+        else:
+            plt.plot(history['train_acc'][start:])
+            plt.plot(history['test_acc'][start:])
         plt.show()
 
 def test_stn(model, n=1):

@@ -148,7 +148,6 @@ class FCN:
             afn(),
             t.nn.Linear(self.param[0], self.param[1]),
             afn(),
-            t.nn.Linear(self.param[1], 10)
         ])
 
 class CNN: # original for mnist, works for cifar
@@ -159,8 +158,7 @@ class CNN: # original for mnist, works for cifar
             assert len(parameters) == len(self.param)
             self.param = parameters
 
-    def get_layers(self, in_shape):
-        final_in = self.param[1] * int((int((in_shape[1]-8)/2) - 6)/2)**2
+    def get_layers(self, in_shape, downsample=None):
         return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
@@ -168,10 +166,7 @@ class CNN: # original for mnist, works for cifar
             t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
-            Flatten(),
-            t.nn.Linear(int(final_in), 10)
         ])
-
 
 class CNN2: # for cifar
     def __init__(self, parameters = None, dropout = None):
@@ -181,9 +176,7 @@ class CNN2: # for cifar
             assert len(parameters) == len(self.param)
             self.param = parameters
 
-    def get_layers(self, in_shape):
-        final_in = self.param[-1] * (in_shape[1]/2/2/2)**2
-        assert final_in == int(final_in), 'Input shape not compatible with CNN'
+    def get_layers(self, in_shape, downsample=None):
         return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3), padding=1),
             afn(),
@@ -211,9 +204,6 @@ class CNN2: # for cifar
             t.nn.BatchNorm2d(self.param[5]),
             t.nn.MaxPool2d(kernel_size = 2, stride = 2),
             t.nn.Dropout2d(0.4),
-
-            Flatten(),
-            t.nn.Linear(int(final_in), 10)
         ])
 
 # read arguments
@@ -238,6 +228,7 @@ localization_dic = {
 class Net(t.nn.Module):
     def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape):
         super().__init__()
+
         layers = layers_obj.get_layers(input_shape)
         self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
         self.post_stn = t.nn.Sequential(*layers[stn_placement:])
@@ -254,13 +245,26 @@ class Net(t.nn.Module):
             self.localization = t.nn.Sequential(localization, parameters)
         else:
             self.localization = None
-        
-        if input_shape[-1] > 40:
-            print("Will downsample, since the width is",input_shape[-1])
+
+        if input_shape[-1] > 40 and localization_obj:
+            print("STN will downsample, since the width is",input_shape[-1])
             self.downsample = Downsample()
+            if loop:
+                final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                    self.downsample, self.pre_stn, self.post_stn
+                ))
+            else:
+                final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                    self.pre_stn, self.downsample, self.post_stn
+                ))
         else:
             self.downsample = None
+            final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                self.pre_stn, self.post_stn
+            ))
 
+        self.out = t.nn.Linear(np.prod(final_shape), 10)
+        
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
     def stn(self, x, y = None):
@@ -291,4 +295,5 @@ class Net(t.nn.Module):
         #     print('Shape', x.shape)
         #     x = layer(x)
         x = self.post_stn(x)
-        return x
+
+        return self.out(x.view(x.size(0),-1))
