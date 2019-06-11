@@ -5,7 +5,7 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../experiments/rotaugment/STCNN6loop/"
+directory = "../experiments/translate/STFCN2loop/"
 
 d = t.load(directory+"model_details")
 train_loader, test_loader = data.data_dic[d['dataset']](d['rotate'])
@@ -49,10 +49,17 @@ def test_stn(model, n=1):
     model.eval()
     batch = next(iter(test_loader))[0][:n]
     for image,transformed in zip(batch, model.stn(model.pre_stn(batch), batch)):
+        transformed = transformed.detach()
+        if image.shape[0] == 1:
+            image = image[0,:,:]
+            transformed = transformed[0,:,:]
+        else:
+            image = np.moveaxis(np.array(image),0,-1)
+            transformed = np.moveaxis(transformed.numpy(),0,-1)
         plt.subplot(1,2,1)
-        plt.imshow(np.moveaxis(np.array(image),0,-1))
+        plt.imshow(image)
         plt.subplot(1,2,2)
-        plt.imshow(np.moveaxis(transformed.detach().numpy(),0,-1))
+        plt.imshow(transformed)
         plt.show()
 
 #%%

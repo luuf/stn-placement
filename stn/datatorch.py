@@ -10,12 +10,31 @@ import PIL
 #     ytrn = np.array([[float(y == i) for i in range(10)] for y in ytrn])
 #     return (xtrn[:50000],ytrn[:50000],xtrn[50000:],ytrn[50000:])
 
+class MNIST_noise:
+    def __init__(self):
+        self.data = tv.datasets.MNIST(
+            root='DATA', train=True, download=True,
+        )
+        self.transform = tv.transforms.Compose([
+            tv.transforms.RandomCrop(6),
+            tv.transforms.Pad(27),
+            tv.transforms.RandomAffine(0,translate=(27/60,27/60)),
+            tv.transforms.ToTensor()
+        ])
+    
+    def __call__(self, img):
+        indices = np.random.randint(0,60000,6)
+        for i in indices:
+            img += self.transform(self.data[i][0])
+        return t.clamp(img, max=1) # pylint: disable=no-member
+
 def mnist(rotate=True,normalize=True,translate=False):
     if translate:
         transforms = [
             tv.transforms.Pad(16), # (60-28)/2 = 16
             tv.transforms.RandomAffine(degrees=0, translate=(16/60,16/60)),
-            tv.transforms.ToTensor()
+            tv.transforms.ToTensor(),
+            MNIST_noise(),
         ]
     else:
         transforms = [
@@ -96,4 +115,5 @@ data_dic = {
     'augment': augmented_cifar,
 }
 
+#%%
 #%%
