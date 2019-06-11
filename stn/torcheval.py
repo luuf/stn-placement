@@ -5,10 +5,10 @@ import datatorch as data
 import matplotlib.pyplot as plt
 import numpy as np
 
-directory = "../experiments/augment/CNNfalse/"
+directory = "../experiments/rotaugment/STCNN6loop/"
 
 d = t.load(directory+"model_details")
-trainloader, testloader = data.data_dic[d['dataset']](d['rotate'])
+train_loader, test_loader = data.data_dic[d['dataset']](d['rotate'])
 #%% Functions
 def get_model(prefix):
     model = models.Net(
@@ -16,7 +16,7 @@ def get_model(prefix):
         models.localization_dic[d['localization']](d['localization_parameters']),
         d['stn_placement'],
         d['loop'],
-        trainloader.dataset[0][0].shape
+        train_loader.dataset[0][0].shape
     )
     model.load_state_dict(t.load(
         directory+str(prefix)+"final",
@@ -46,7 +46,8 @@ def print_history(prefixes=[0,1,2],loss=False,start=0):
 def test_stn(model, n=1):
     if type(model) == int:
         model = get_model(model)
-    batch = next(iter(trainloader))[0][:n]
+    model.eval()
+    batch = next(iter(test_loader))[0][:n]
     for image,transformed in zip(batch, model.stn(model.pre_stn(batch), batch)):
         plt.subplot(1,2,1)
         plt.imshow(np.moveaxis(np.array(image),0,-1))
