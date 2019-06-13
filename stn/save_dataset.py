@@ -2,8 +2,8 @@
 import torch as t
 import torchvision as tv
 import numpy as np
-import datatorch as data
 import time
+import data
 
 from argparse import ArgumentParser
 
