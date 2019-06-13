@@ -237,7 +237,7 @@ for run in range(args.runs):
         scheduler.step()
         if epoch % 100 == 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
-            t.save(model.state_dictt(), directory + prefix + 'ckpt' + str(epoch))
+            t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print(
                 'Saved model at epoch', epoch, '\n'
                 'Train',history['train_acc'][epoch],
@@ -253,7 +253,7 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(history['test_acc'][-1])
 
-    t.save(model.state_dictt(), directory + prefix + 'final')
+    t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
 
 for run in range(args.runs):

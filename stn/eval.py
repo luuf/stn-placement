@@ -18,11 +18,11 @@ def get_model(prefix):
         d['loop'],
         train_loader.dataset[0][0].shape
     )
-    model.load_state_dictt(t.load(
+    model.load_state_dict(t.load(
         directory+str(prefix)+"final",
         map_location='cpu'
     ))
-    # model.load_state_dictt(t.load(directory+prefix+"ckpt"+"100"))
+    # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
     return model
 
 def print_history(prefixes=[0,1,2],loss=False,start=0):
