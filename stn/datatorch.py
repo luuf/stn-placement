@@ -104,11 +104,29 @@ def cifar10(rotate=False,normalize=False,augment=False):
     )
     return (train_loader, test_loader)
 
-def augmented_cifar(rotate=False,normalize=False,augment=False):
+def augmented_cifar(rotate=False,normalize=False):
     assert normalize is False
     return cifar10(rotate,False,True)
 
-data_dic = {
+def get_precomputed(name):
+    d = np.load('DATA/'+name+'.npz')
+    train_loader = t.utils.data.DataLoader(
+        t.utils.data.TensorDataset(
+            t.tensor(d['trn_x']),
+            t.tensor(d['trn_y']),
+        ),
+        batch_size=256, shuffle=True, num_workers=4
+    )
+    test_loader = t.utils.data.DataLoader(
+        t.utils.data.TensorDataset(
+            t.tensor(d['tst_x']),
+            t.tensor(d['tst_y']),
+        ),
+        batch_size=256, shuffle=True, num_workers=4
+    )
+    return (train_loader, test_loader)
+
+data_dict = {
     'mnist': mnist,
     'translate': translated_mnist,
     'cifar10': cifar10,

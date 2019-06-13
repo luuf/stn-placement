@@ -207,13 +207,13 @@ class CNN2: # for cifar
         ])
 
 # read arguments
-model_dic = {
+model_dict = {
     'FCN': FCN,
     'CNN': CNN,
     'CNN2': CNN2,
 }
 
-localization_dic = {
+localization_dict = {
     'CNN':   CNN_localization,
     'CNN2':  CNN_localization2,
     # 'CNN2':  CNN2_localization,

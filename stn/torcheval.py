@@ -8,21 +8,21 @@ import numpy as np
 directory = "../experiments/translate/STFCN2loop/"
 
 d = t.load(directory+"model_details")
-train_loader, test_loader = data.data_dic[d['dataset']](d['rotate'])
+train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
 #%% Functions
 def get_model(prefix):
     model = models.Net(
-        models.model_dic[d['model']](d['model_parameters']),
-        models.localization_dic[d['localization']](d['localization_parameters']),
+        models.model_dict[d['model']](d['model_parameters']),
+        models.localization_dict[d['localization']](d['localization_parameters']),
         d['stn_placement'],
         d['loop'],
         train_loader.dataset[0][0].shape
     )
-    model.load_state_dict(t.load(
+    model.load_state_dictt(t.load(
         directory+str(prefix)+"final",
         map_location='cpu'
     ))
-    # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
+    # model.load_state_dictt(t.load(directory+prefix+"ckpt"+"100"))
     return model
 
 def print_history(prefixes=[0,1,2],loss=False,start=0):
