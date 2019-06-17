@@ -196,7 +196,7 @@ def test(epoch = None):
         history['test_acc'][epoch] = correct
     return test_loss, correct
 
-directory = 'experiments/' + args.name + '/'
+directory = args.name + '/'
 try:
     mkdir(directory)
     print('Creating directory', directory)
