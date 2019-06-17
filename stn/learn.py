@@ -7,8 +7,9 @@ from argparse import ArgumentParser
 from os import mkdir
 import data
 import models
+from datetime import datetime
 
-print('Successful import')
+print('Launched at', datetime.now())
 #%% Parse arguments
 parser = ArgumentParser()
 parser.add_argument(
