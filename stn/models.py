@@ -91,14 +91,14 @@ class CNN_localization2: # for cifar
             self.param = parameters
 
     def get_layers(self, in_shape):
-        final_in = self.param[1] * (((in_shape[1]-4)/2 - 4)/2)**2
+        final_in = self.param[1] * (((in_shape[1])/2)/2)**2
         assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
         return t.nn.ModuleList([
-            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2),
             afn(),
             t.nn.BatchNorm2d(self.param[0]),
             t.nn.MaxPool2d(kernel_size=2, stride=2),
-            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5)),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2),
             afn(),
             t.nn.BatchNorm2d(self.param[1]),
             t.nn.MaxPool2d(kernel_size=2, stride=2),
