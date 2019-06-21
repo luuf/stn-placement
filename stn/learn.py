@@ -4,7 +4,7 @@ import torchvision as tv
 import numpy as np
 import time
 from argparse import ArgumentParser
-from os import mkdir
+from os import makedirs
 import data
 import models
 from datetime import datetime
@@ -197,11 +197,7 @@ def test(epoch = None):
     return test_loss, correct
 
 directory = args.name + '/'
-try:
-    mkdir(directory)
-    print('Creating directory', directory)
-except FileExistsError:
-    print('Using existing directory', directory)
+makedirs(directory, exist_ok=True)
 
 #%% Run
 for run in range(args.runs):
