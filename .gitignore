@@ -103,7 +103,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-# Manually added
+# Project specific
 *.pdf
 Icon?
 data

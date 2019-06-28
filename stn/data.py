@@ -13,7 +13,7 @@ import PIL
 class MNIST_noise:
     def __init__(self):
         self.data = tv.datasets.MNIST(
-            root='DATA', train=True, download=True,
+            root='data/cache', train=True, download=True,
         )
         self.transform = tv.transforms.Compose([
             tv.transforms.RandomCrop(6),
@@ -46,14 +46,14 @@ def mnist(rotate=True,normalize=True,translate=False):
             transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # subtracts first number and divides with second
     train_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
-            root='DATA', train=True, download=True,
+            root='data/cache', train=True, download=True,
             transform=tv.transforms.Compose(transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
-            root='DATA', train=False, # download absent
+            root='data/cache', train=False, # download absent
             transform=tv.transforms.Compose(transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
@@ -90,14 +90,14 @@ def cifar10(rotate=False,normalize=False,augment=False):
         test_transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
     train_loader = t.utils.data.DataLoader(
         tv.datasets.CIFAR10(
-            root='DATA', train=True, download=True,
+            root='data/cache', train=True, download=True,
             transform=tv.transforms.Compose(train_transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.CIFAR10(
-            root='DATA', train=False, # download absent
+            root='data/cache', train=False, # download absent
             transform=tv.transforms.Compose(test_transforms)
         ),
         batch_size=256, shuffle=True, num_workers=4
@@ -109,7 +109,7 @@ def augmented_cifar(rotate=False,normalize=False):
     return cifar10(rotate,False,True)
 
 def get_precomputed(name):
-    d = np.load('DATA/'+name+'.npz')
+    d = np.load('data/'+name+'.npz')
     train_loader = t.utils.data.DataLoader(
         t.utils.data.TensorDataset(
             t.tensor(d['trn_x']),
