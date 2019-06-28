@@ -88,14 +88,13 @@ args = parser.parse_args()
 print("Parsed: ", args)
 
 #%% Read arguments
-data_fn = data.data_dict.get(args.dataset)
-if data_fn is None:
+if args.dataset in data.data_dict:
+    print('Using dataset:', args.dataset, '; rotated' if args.rotate else '')
+    train_loader, test_loader = data.data_dict[args.dataset](args.rotate)
+else:
     print('Using precomputed dataset',args.dataset)
     assert args.rotate is False
     train_loader, test_loader = data.get_precomputed(args.dataset)
-else:
-    print('Using dataset:', args.dataset, '; rotated' if args.rotate else '')
-    train_loader, test_loader = data_fn(args.rotate)
 input_shape = train_loader.dataset[0][0].shape
 
 
@@ -111,7 +110,7 @@ if args.model_parameters is None or args.model_parameters == []:
 
 print('Using localization:', args.localization)
 localization_class = models.localization_dict.get(args.localization)
-assert not (localization_class is None), 'Could not find localization'
+assert not localization_class is None, 'Could not find localization'
 
 localization_obj = localization_class(args.localization_parameters)
 no_parameters = args.localization_parameters is None or args.localization_parameters == []
