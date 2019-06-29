@@ -24,13 +24,106 @@ class Downsample(t.nn.Module):
             mode='bilinear'
         )
 
-# localization architecture
-class Small_localization:
-    def __init__(self, parameters = None):
-        self.param = [32]
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+
+class Modular_Model(t.nn.Module):
+    def __init__(self, parameters):
+        super().__init__()
+
+        if not (parameters is None or parameters == []):
+            print(parameters)
+            print(self.default_parameters)
+            assert len(parameters) == len(self.default_parameters)
+            self.param = parameters 
+        else:
+            self.param = self.default_parameters
+
+class Localization(Modular_Model):
+    def __init__(self, parameters, input_shape):
+        super().__init__(parameters)
+
+        self.model = t.nn.Sequential(*self.get_layers(input_shape))
+
+        out_shape = get_output_shape(input_shape, self.model)
+        assert len(out_shape) == 1, "Localization output must be flat"
+        self.affine_param = t.nn.Linear(out_shape[0], 6)
+        self.affine_param.weight.data.zero_()
+        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=not-callable,no-member
+
+    def forward(self, x):
+        return self.affine_param(self.model(x))
+
+class Classifier(Modular_Model):
+    def __init__(self, parameters, input_shape, localization_class, localization_parameters, stn_placement, loop, data_tag):
+        super().__init__(parameters)
+
+        layers = self.get_layers(input_shape)
+        self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
+        self.post_stn = t.nn.Sequential(*layers[stn_placement:])
+
+        self.loop = loop
+
+        if localization_class:
+            in_shape = get_output_shape(input_shape, self.pre_stn)
+            self.localization = localization_class(localization_parameters, in_shape)
+        else:
+            self.localization = None
+
+        if data_tag in ['translate','clutter']:
+            print("STN will downsample, since the data is", data_tag)
+            self.downsample = Downsample()
+            if loop:
+                final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                    self.downsample, self.pre_stn, self.post_stn
+                ))
+            else:
+                final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                    self.pre_stn, self.downsample, self.post_stn
+                ))
+        else:
+            self.downsample = None
+            final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                self.pre_stn, self.post_stn
+            ))
+
+        self.output = self.out(np.prod(final_shape))
+
+        # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
+    
+    def stn(self, x, y = None):
+        theta = self.localization(x)
+        theta = theta.view(-1, 2, 3)
+        to_transform = x if y is None else y
+        grid = t.nn.functional.affine_grid(theta, to_transform.size())
+        transformed = t.nn.functional.grid_sample(to_transform, grid)
+        if self.downsample:
+            transformed = self.downsample(transformed)
+        # plt.imshow(transformed.detach()[0,0,:,:])
+        # plt.figure()
+        # plt.imshow(to_transform.detach()[0,0,:,:])
+        # plt.show()
+        return transformed
+    
+    def forward(self, x):
+        if self.localization:
+            if self.loop:
+                x = self.stn(self.pre_stn(x), x)
+                x = self.pre_stn(x)
+            else:
+                x = self.pre_stn(x)
+                x = self.stn(x)
+
+        # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
+        #     print('Layer', i, ': ', layer)
+        #     print('Shape', x.shape)
+        #     x = layer(x)
+        x = self.post_stn(x)
+
+        return self.output(x.view(x.size(0),-1))
+
+
+# localization architectures
+class Small_localization(Localization):
+    default_parameters = [32]
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
@@ -39,12 +132,8 @@ class Small_localization:
             afn()
         ])
 
-class FCN_localization:
-    def __init__(self, parameters = None):
-        self.param = [32,32,32]
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class FCN_localization(Localization):
+    default_parameters = [32,32,32]
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
@@ -57,12 +146,8 @@ class FCN_localization:
             afn()
         ])
 
-class CNN_localization:
-    def __init__(self, parameters = None):
-        self.param = [20,20,20]
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class CNN_localization(Localization):
+    default_parameters = [20,20,20]
 
     def get_layers(self, in_shape):
         final_in = self.param[1] * ((in_shape[1]/2-4)/2 - 4)**2
@@ -79,12 +164,8 @@ class CNN_localization:
             afn()
         ])
 
-class CNN_localization2: # for cifar
-    def __init__(self, parameters = None):
-        self.param = [20,40,80]
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class CNN_localization2(Localization): # for cifar
+    default_parameters = [20,40,80]
 
     def get_layers(self, in_shape):
         final_in = self.param[1] * (((in_shape[1])/2)/2)**2
@@ -124,18 +205,12 @@ class CNN_localization2: # for cifar
 #             tf.layers.Dense(units=self.param[2], activation=activation_fn),
 #         ]
 
-def no_stn(parameters = None):
-    assert parameters is None
-    return False
+# classification architectures
+class FCN(Classifier):
+    default_parameters = [256,200]
 
-# classification architecture
-class FCN:
-    def __init__(self, parameters = None):
-        self.param = [256,200]
-        self.out = lambda n: t.nn.Linear(n, 10)
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+    def out(self,n):
+        return t.nn.Linear(n, 10)
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
@@ -146,13 +221,11 @@ class FCN:
             afn(),
         ])
 
-class CNN: # original for mnist, works for cifar
-    def __init__(self, parameters = None):
-        self.param = [64,64]
-        self.out = lambda n: t.nn.Linear(n, 10)
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class CNN(Classifier): # original for mnist, works for cifar
+    default_parameters = [64,64]
+
+    def out(self,n):
+        return t.nn.Linear(n, 10)
 
     def get_layers(self, in_shape, downsample=None):
         return t.nn.ModuleList([
@@ -164,13 +237,11 @@ class CNN: # original for mnist, works for cifar
             afn(),
         ])
 
-class CNN2: # for cifar
-    def __init__(self, parameters = None):
-        self.param = [32,32,64,64,128,128]
-        self.out = lambda n: t.nn.Linear(n, 10)
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class CNN2(Classifier): # for cifar
+    default_parameters = [32,32,64,64,128,128]
+
+    def out(self,n):
+        return t.nn.Linear(n, 10)
 
     def get_layers(self, in_shape, downsample=None):
         return t.nn.ModuleList([
@@ -202,22 +273,18 @@ class CNN2: # for cifar
             t.nn.Dropout2d(0.4),
         ])
 
-class SVHN_out(t.nn.Module):
-    def __init__(self, neurons):
-        super().__init__()
-        self.out_layers = t.nn.ModuleList([
-            t.nn.Linear(neurons,11) for i in range(5)
-        ])
-    def forward(self, x):
-        return [layer(x) for layer in self.out_layers]
 
-class SVHN_CNN:
-    def __init__(self, parameters = None):
-        self.param = [48,64,128,160,192,192,192,192,3072,3072,3072]
-        self.out = SVHN_out
-        if not parameters is None:
-            assert len(parameters) == len(self.param)
-            self.param = parameters
+class SVHN_CNN(Classifier):
+    default_parameters = [48,64,128,160,192,192,192,192,3072,3072,3072]
+
+    class out(t.nn.Module):
+        def __init__(self, neurons):
+            super().__init__()
+            self.out_layers = t.nn.ModuleList([
+                t.nn.Linear(neurons,11) for i in range(5)
+            ])
+        def forward(self, x):
+            return [layer(x) for layer in self.out_layers]
 
     def get_layers(self, in_shape, downsample=None):
         final_side = in_shape[1]/2/2/2/2
@@ -279,7 +346,15 @@ class SVHN_CNN:
             t.nn.Dropout(0.5),
         ])
 
-# read arguments
+# dictionaries for mapping arguments to classes
+localization_dict = {
+    'CNN':   CNN_localization,
+    'CNN2':  CNN_localization2,
+    'FCN':   FCN_localization,
+    'small': Small_localization,
+    'false': False,
+}
+
 model_dict = {
     'FCN': FCN,
     'CNN': CNN,
@@ -287,86 +362,6 @@ model_dict = {
     'SVHN-CNN': SVHN_CNN,
 }
 
-localization_dict = {
-    'CNN':   CNN_localization,
-    'CNN2':  CNN_localization2,
-    'FCN':   FCN_localization,
-    'small': Small_localization,
-    'false': no_stn
-}
 
 
 # import matplotlib.pyplot as plt
-
-class Net(t.nn.Module):
-    def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape, data_tag):
-        super().__init__()
-
-        layers = layers_obj.get_layers(input_shape)
-        self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
-        self.post_stn = t.nn.Sequential(*layers[stn_placement:])
-        self.loop = loop
-
-        if localization_obj:
-            in_shape = get_output_shape(input_shape, self.pre_stn)
-            localization = t.nn.Sequential(*localization_obj.get_layers(in_shape))
-            out_shape = get_output_shape(in_shape, localization)
-            assert len(out_shape) == 1, "Localization output must be flat"
-            parameters = t.nn.Linear(out_shape[0], 6)
-            parameters.weight.data.zero_()
-            parameters.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=not-callable,no-member
-            self.localization = t.nn.Sequential(localization, parameters)
-        else:
-            self.localization = None
-
-        if data_tag in ['translated_mnist','clutter']:
-            print("STN will downsample, since the data is", data_tag)
-            self.downsample = Downsample()
-            if loop:
-                final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    self.downsample, self.pre_stn, self.post_stn
-                ))
-            else:
-                final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    self.pre_stn, self.downsample, self.post_stn
-                ))
-        else:
-            self.downsample = None
-            final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                self.pre_stn, self.post_stn
-            ))
-
-        self.out = layers_obj.out(np.prod(final_shape))
-
-        # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
-    
-    def stn(self, x, y = None):
-        theta = self.localization(x)
-        theta = theta.view(-1, 2, 3)
-        to_transform = x if y is None else y
-        grid = t.nn.functional.affine_grid(theta, to_transform.size())
-        transformed = t.nn.functional.grid_sample(to_transform, grid)
-        if self.downsample:
-            transformed = self.downsample(transformed)
-        # plt.imshow(transformed.detach()[0,0,:,:])
-        # plt.figure()
-        # plt.imshow(to_transform.detach()[0,0,:,:])
-        # plt.show()
-        return transformed
-    
-    def forward(self, x):
-        if self.localization:
-            if self.loop:
-                x = self.stn(self.pre_stn(x), x)
-                x = self.pre_stn(x)
-            else:
-                x = self.pre_stn(x)
-                x = self.stn(x)
-
-        # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
-        #     print('Layer', i, ': ', layer)
-        #     print('Shape', x.shape)
-        #     x = layer(x)
-        x = self.post_stn(x)
-
-        return self.out(x.view(x.size(0),-1))

@@ -103,23 +103,9 @@ print('Using model:', args.model)
 model_class = models.model_dict.get(args.model)
 assert not (model_class is None), 'Could not find model'
 
-model_obj = model_class(args.model_parameters)
-if args.model_parameters is None or args.model_parameters == []:
-    print('Using default parameters')
-    args.model_parameters = model_obj.param
-
-
 print('Using localization:', args.localization)
 localization_class = models.localization_dict.get(args.localization)
 assert not localization_class is None, 'Could not find localization'
-
-localization_obj = localization_class(args.localization_parameters)
-no_parameters = args.localization_parameters is None or args.localization_parameters == []
-assert localization_obj or no_parameters, "localization parameters can't be used without stn"
-if localization_obj and no_parameters:
-    print('Using default parameters')
-    args.localization_parameters = localization_obj.param
-
 
 print('Using optimizer',args.optimizer)
 optimizer_fn = {
@@ -219,9 +205,10 @@ for run in range(args.runs):
     }
 
     # Create model
-    model = models.Net(
-        model_obj, localization_obj, args.stn_placement,
-        args.loop, input_shape, args.dataset,
+    model = model_class(
+        args.model_parameters, input_shape, localization_class,
+        args.localization_parameters, args.stn_placement,
+        args.loop, args.dataset,
     )
     model = model.to(device)
 
