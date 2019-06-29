@@ -26,8 +26,7 @@ class Downsample(t.nn.Module):
 
 # localization architecture
 class Small_localization:
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [32]
         if not parameters is None:
             assert len(parameters) == len(self.param)
@@ -41,8 +40,7 @@ class Small_localization:
         ])
 
 class FCN_localization:
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [32,32,32]
         if not parameters is None:
             assert len(parameters) == len(self.param)
@@ -60,8 +58,7 @@ class FCN_localization:
         ])
 
 class CNN_localization:
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [20,20,20]
         if not parameters is None:
             assert len(parameters) == len(self.param)
@@ -83,8 +80,7 @@ class CNN_localization:
         ])
 
 class CNN_localization2: # for cifar
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [20,40,80]
         if not parameters is None:
             assert len(parameters) == len(self.param)
@@ -128,15 +124,15 @@ class CNN_localization2: # for cifar
 #             tf.layers.Dense(units=self.param[2], activation=activation_fn),
 #         ]
 
-def no_stn(parameters = None, dropout = None):
+def no_stn(parameters = None):
     assert parameters is None
     return False
 
 # classification architecture
 class FCN:
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [256,200]
+        self.out = lambda n: t.nn.Linear(n, 10)
         if not parameters is None:
             assert len(parameters) == len(self.param)
             self.param = parameters
@@ -151,9 +147,9 @@ class FCN:
         ])
 
 class CNN: # original for mnist, works for cifar
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [64,64]
+        self.out = lambda n: t.nn.Linear(n, 10)
         if not parameters is None:
             assert len(parameters) == len(self.param)
             self.param = parameters
@@ -169,9 +165,9 @@ class CNN: # original for mnist, works for cifar
         ])
 
 class CNN2: # for cifar
-    def __init__(self, parameters = None, dropout = None):
-        assert dropout is None
+    def __init__(self, parameters = None):
         self.param = [32,32,64,64,128,128]
+        self.out = lambda n: t.nn.Linear(n, 10)
         if not parameters is None:
             assert len(parameters) == len(self.param)
             self.param = parameters
@@ -206,17 +202,94 @@ class CNN2: # for cifar
             t.nn.Dropout2d(0.4),
         ])
 
+class SVHN_out(t.nn.Module):
+    def __init__(self, neurons):
+        super().__init__()
+        self.out_layers = t.nn.ModuleList([
+            t.nn.Linear(neurons,11) for i in range(5)
+        ])
+    def forward(self, x):
+        return [layer(x) for layer in self.out_layers]
+
+class SVHN_CNN:
+    def __init__(self, parameters = None):
+        self.param = [48,64,128,160,192,192,192,192,3072,3072,3072]
+        self.out = SVHN_out
+        if not parameters is None:
+            assert len(parameters) == len(self.param)
+            self.param = parameters
+
+    def get_layers(self, in_shape, downsample=None):
+        final_side = in_shape[1]/2/2/2/2
+        assert final_side == int(final_side), 'Input shape not compatible with localization CNN'
+        return t.nn.ModuleList([
+            t.nn.Sequential(
+                t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+                # no dropout in first layer
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[2], self.param[3], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[3], self.param[4], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[4], self.param[5], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[5], self.param[6], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+                t.nn.Dropout2d(0.5),
+            ),
+            t.nn.Sequential(
+                t.nn.Conv2d(self.param[6], self.param[7], kernel_size = (5,5), padding=2),
+                afn(),
+                t.nn.Dropout(0.5),
+            ),
+            Flatten(),
+            t.nn.Linear(self.param[7] * int(final_side)**2, self.param[8]),
+            afn(),
+            t.nn.Dropout(0.5),
+            t.nn.Linear(self.param[8], self.param[9]),
+            afn(),
+            t.nn.Dropout(0.5),
+            t.nn.Linear(self.param[9], self.param[10]),
+            afn(),
+            t.nn.Dropout(0.5),
+        ])
+
 # read arguments
 model_dict = {
     'FCN': FCN,
     'CNN': CNN,
     'CNN2': CNN2,
+    'SVHN-CNN': SVHN_CNN,
 }
 
 localization_dict = {
     'CNN':   CNN_localization,
     'CNN2':  CNN_localization2,
-    # 'CNN2':  CNN2_localization,
     'FCN':   FCN_localization,
     'small': Small_localization,
     'false': no_stn
@@ -226,7 +299,7 @@ localization_dict = {
 # import matplotlib.pyplot as plt
 
 class Net(t.nn.Module):
-    def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape):
+    def __init__(self, layers_obj, localization_obj, stn_placement, loop, input_shape, data_tag):
         super().__init__()
 
         layers = layers_obj.get_layers(input_shape)
@@ -246,8 +319,8 @@ class Net(t.nn.Module):
         else:
             self.localization = None
 
-        if input_shape[-1] > 40 and localization_obj:
-            print("STN will downsample, since the width is",input_shape[-1])
+        if data_tag in ['translated_mnist','clutter']:
+            print("STN will downsample, since the data is", data_tag)
             self.downsample = Downsample()
             if loop:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
@@ -263,8 +336,8 @@ class Net(t.nn.Module):
                 self.pre_stn, self.post_stn
             ))
 
-        self.out = t.nn.Linear(np.prod(final_shape), 10)
-        
+        self.out = layers_obj.out(np.prod(final_shape))
+
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
     def stn(self, x, y = None):

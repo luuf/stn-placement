@@ -8,6 +8,7 @@ from os import makedirs
 import data
 import models
 from datetime import datetime
+from functools import reduce
 
 print('Launched at', datetime.now())
 #%% Parse arguments
@@ -141,28 +142,32 @@ else:
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu") # pylint: disable=no-member
 
-cross_entropy = t.nn.CrossEntropyLoss()
-
 final_accuracies = {'train':[], 'test':[]}
 # These need to be defined before train and test
 optimizer = None
 scheduler = None
 history = None
 
+cross_entropy = t.nn.CrossEntropyLoss()
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device) 
         optimizer.zero_grad()
         output = model(data)
-        loss = cross_entropy(output, target)
+
+        if args.dataset == 'svhn':
+            loss = sum([cross_entropy(output[i],target[:,i]) for i in range(5)])
+            pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
+            history['train_acc'][epoch] += pred.eq(target).all(1).sum()
+        else:
+            loss = cross_entropy(output, target)
+            pred = output.argmax(1, keepdim=True)
+            history['train_acc'][epoch] += pred.eq(target.view_as(pred)).sum().item()
         loss.backward()
         optimizer.step()
 
-        batch_size = data.shape[0]
-        history['train_loss'][epoch] += loss.item() * batch_size
-        pred = output.max(1, keepdim=True)[1]
-        history['train_acc'][epoch] += pred.eq(target.view_as(pred)).sum().item()
+        history['train_loss'][epoch] += loss.item() * data.shape[0]
 
         if batch_idx % 50 == 0 and device == t.device("cpu"): # pylint: disable=no-member
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -171,8 +176,8 @@ def train(epoch):
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
+cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
 def test(epoch = None):
-    cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
     with t.no_grad():
         model.eval()
         test_loss = 0
@@ -181,10 +186,13 @@ def test(epoch = None):
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-            # sum up batch loss
+        if args.dataset == 'svhn':
+            test_loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
+            pred = np.stack(list(map(t.detach, output)), 2).argmax(1) # pylint: disable=no-member
+            correct += (pred == target.detach().numpy()).all(1).sum()
+        else:
             test_loss += cross_entropy_sum(output, target).item()
-            # get the index of the max log-probability
-            pred = output.max(1, keepdim=True)[1]
+            pred = output.argmax(1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
     
     test_loss /= len(test_loader.dataset)
@@ -211,7 +219,10 @@ for run in range(args.runs):
     }
 
     # Create model
-    model = models.Net(model_obj, localization_obj, args.stn_placement, args.loop, input_shape)
+    model = models.Net(
+        model_obj, localization_obj, args.stn_placement,
+        args.loop, input_shape, args.dataset,
+    )
     model = model.to(device)
 
     # initialize
