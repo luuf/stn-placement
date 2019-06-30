@@ -187,9 +187,9 @@ def test(epoch = None):
             output = model(data)
 
         if args.dataset == 'svhn':
-            test_loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
-            pred = np.stack(list(map(t.detach, output)), 2).argmax(1) # pylint: disable=no-member
-            correct += (pred == target.detach().numpy()).all(1).sum()
+            test_loss += sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
+            pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
+            correct += pred.eq(target).all(1).sum()
         else:
             test_loss += cross_entropy_sum(output, target).item()
             pred = output.argmax(1, keepdim=True)
