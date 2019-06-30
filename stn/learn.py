@@ -151,7 +151,6 @@ cross_entropy = t.nn.CrossEntropyLoss()
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        print('batch',batch_idx)
         data, target = data.to(device), target.to(device) 
         optimizer.zero_grad()
         output = model(data)
