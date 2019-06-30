@@ -5,10 +5,14 @@ import numpy as np
 import models
 import data
 
-directory = "../experiments/translate/STFCN2loop/"
+directory = "../experiments/precluttered/STFCN2loop/"
 
 d = t.load(directory+"model_details")
-train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
+if d['dataset'] in data.data_dict:
+    train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
+else:
+    train_loader, test_loader = data.get_precomputed(d['dataset'])
+
 #%% Functions
 def get_model(prefix):
     model = models.Net(
@@ -20,7 +24,7 @@ def get_model(prefix):
     )
     model.load_state_dict(t.load(
         directory+str(prefix)+"final",
-        map_location='cpu'
+        map_location='cpu',
     ))
     # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
     return model
