@@ -241,13 +241,13 @@ for run in range(args.runs):
         train(epoch)
         test(epoch)
         scheduler.step()
-        if epoch % 100 == 0:
+        if epoch % 10 == 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print(
-                'Saved model at epoch', epoch, '\n'
-                'Train',history['train_acc'][epoch],
-                'Test', history['test_acc'][epoch]
+                'Saved model at epoch', epoch, '\n',
+                'Train','loss',history['train_loss'],'acc',history['train_acc'][epoch],'\n',
+                'Test', 'loss',history['test_loss'], 'acc',history['test_acc'][epoch],'\n'
             )
     total_time = time.time() - start_time
     print('Time', total_time)
