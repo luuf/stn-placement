@@ -150,7 +150,7 @@ optimizer = None
 scheduler = None
 history = None
 
-cross_entropy = t.nn.CrossEntropyLoss()
+cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -249,8 +249,8 @@ for run in range(args.runs):
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print(
                 'Saved model at epoch', epoch, '\n',
-                'Train','loss',history['train_loss'],'acc',history['train_acc'][epoch],'\n',
-                'Test', 'loss',history['test_loss'], 'acc',history['test_acc'][epoch],'\n'
+                'Train','loss',history['train_loss'][epoch],'acc',history['train_acc'][epoch],'\n',
+                'Test', 'loss',history['test_loss'][epoch], 'acc',history['test_acc'][epoch],'\n'
             )
     total_time = time.time() - start_time
     print('Time', total_time)
