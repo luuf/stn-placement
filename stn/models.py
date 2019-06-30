@@ -184,6 +184,37 @@ class CNN_localization2(Localization): # for cifar
             afn()
         ])
 
+class SVHN_large(Localization):
+    default_parameters = [32,32,32,32]
+
+    def get_layers(self, in_shape):
+        final_side = in_shape[1]/2
+        assert final_side == int(final_side)
+        return t.nn.ModuleList([
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2),
+            afn(),
+            t.nn.MaxPool2d(kernel_size=2, stride=2),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2),
+            afn(),
+            Flatten(),
+            t.nn.Linear(self.param[1] * int(final_side)**2, self.param[2]),
+            afn(),
+            t.nn.Linear(self.param[2], self.param[3]),
+            afn(),
+        ])
+
+class SVHN_small(Localization):
+    default_parameters = [32,32]
+
+    def get_layers(self, in_shape):
+        return t.nn.ModuleList([
+            Flatten(),
+            t.nn.Linear(np.prod(in_shape), self.param[0]),
+            afn(),
+            t.nn.Linear(self.param[0], self.param[1]),
+            afn(),
+        ])
+
 # class CNN2_localization:
 #     def __init__(self, parameters = None, dropout = None):
 #         self.param = [20,20,20]
@@ -352,6 +383,8 @@ localization_dict = {
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
     'small': Small_localization,
+    'SVHN-l':SVHN_large,
+    'SVHN-s':SVHN_small,
     'false': False,
 }
 

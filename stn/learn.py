@@ -110,7 +110,7 @@ if args.iterations:
           'epochs ==',epochs*len(train_loader),'iterations')
 else:
     epochs = args.epochs
-    print('Using',epochs,'epochs == ',epochs*len(train_loader.dataset)/256,'iterations')
+    print('Using',epochs,'epochs == ',epochs*len(train_loader),'iterations')
 assert epochs > 0
 
 print('Using model:', args.model)
@@ -152,6 +152,7 @@ cross_entropy = t.nn.CrossEntropyLoss()
 def train(epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        print('batch',batch_idx)
         data, target = data.to(device), target.to(device) 
         optimizer.zero_grad()
         output = model(data)
