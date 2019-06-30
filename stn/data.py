@@ -115,14 +115,14 @@ def get_precomputed(name):
             t.tensor(d['trn_x']),
             t.tensor(d['trn_y']),
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=128, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         t.utils.data.TensorDataset(
             t.tensor(d['tst_x']),
             t.tensor(d['tst_y']),
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=128, shuffle=True, num_workers=4
     )
     return (train_loader, test_loader)
 

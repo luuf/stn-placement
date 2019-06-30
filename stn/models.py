@@ -394,7 +394,3 @@ model_dict = {
     'CNN2': CNN2,
     'SVHN-CNN': SVHN_CNN,
 }
-
-
-
-# import matplotlib.pyplot as plt

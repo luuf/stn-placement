@@ -53,10 +53,9 @@ parser.add_argument(
     "--lr", type=float,
     help="Constant learning rate to use. Default is 0.01, 0.001 0.0001"
 )
-# parser.add_argument(
-#     "--dropout", type=float,
-#     help="Fraction of units to drop. Default is to not use dropout at all."
-# )
+parser.add_argument(
+    "--weight-decay", "-w", type=float,
+)
 
 epoch_parser = parser.add_mutually_exclusive_group(required=True)
 epoch_parser.add_argument(
@@ -233,7 +232,7 @@ for run in range(args.runs):
     print('Switching learning rate after', switch_after_epochs)
     start_time = time.time()
 
-    optimizer = optimizer_fn(model.parameters(), learning_rate)
+    optimizer = optimizer_fn(model.parameters(), learning_rate, weight_decay=args.weight_decay)
     scheduler = t.optim.lr_scheduler.LambdaLR(
         optimizer,
         lambda e: learning_rate_multipliers[e // switch_after_epochs]
