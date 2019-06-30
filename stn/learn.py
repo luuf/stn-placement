@@ -38,10 +38,6 @@ parser.add_argument(
     help="Number of layers to place stn after"
 )
 parser.add_argument(
-    "--epochs", '-e', type=int, default=640,
-    help="Epochs to train on, default 640" # 640 = 150000 * 256 / 60000
-)
-parser.add_argument(
     "--runs", type=int, default=1,
     help="Number of time to run this experiment, default 1"
 )
@@ -61,6 +57,16 @@ parser.add_argument(
 #     "--dropout", type=float,
 #     help="Fraction of units to drop. Default is to not use dropout at all."
 # )
+
+epoch_parser = parser.add_mutually_exclusive_group(required=True)
+epoch_parser.add_argument(
+    "--epochs", '-e', type=int, dest="epochs",
+    help="Epochs to train on, default 640" # 640 = 150000 * 256 / 60000
+)
+epoch_parser.add_argument(
+    "--iterations", '-i', type=int, dest="iterations",
+    help="Epochs to train on, default 640" # 640 = 150000 * 256 / 60000
+)
 
 loop_parser = parser.add_mutually_exclusive_group(required=False)
 loop_parser.add_argument(
@@ -98,6 +104,14 @@ else:
     train_loader, test_loader = data.get_precomputed(args.dataset)
 input_shape = train_loader.dataset[0][0].shape
 
+if args.iterations:
+    epochs = args.iterations // len(train_loader)
+    print('Rounding',args.iterations,'iterations to',epochs,
+          'epochs ==',epochs*len(train_loader),'iterations')
+else:
+    epochs = args.epochs
+    print('Using',epochs,'epochs == ',epochs*len(train_loader.dataset)/256,'iterations')
+assert epochs > 0
 
 print('Using model:', args.model)
 model_class = models.model_dict.get(args.model)
@@ -198,10 +212,10 @@ for run in range(args.runs):
     prefix = str(run) if args.runs > 1 else ''
 
     history = {
-        'train_loss': np.zeros(args.epochs,),
-        'test_loss': np.zeros(args.epochs,),
-        'train_acc': np.zeros(args.epochs,),
-        'test_acc': np.zeros(args.epochs,)
+        'train_loss': np.zeros(epochs,),
+        'test_loss': np.zeros(epochs,),
+        'train_acc': np.zeros(epochs,),
+        'test_acc': np.zeros(epochs,)
     }
 
     # Create model
@@ -215,7 +229,6 @@ for run in range(args.runs):
     # initialize
 
     # Train model
-    print('Training for epochs:', args.epochs)
     print('Switching learning rate after', switch_after_epochs)
     start_time = time.time()
 
@@ -225,7 +238,7 @@ for run in range(args.runs):
         lambda e: learning_rate_multipliers[e // switch_after_epochs]
     )
 
-    for epoch in range(args.epochs):
+    for epoch in range(epochs):
         train(epoch)
         test(epoch)
         scheduler.step()
@@ -239,7 +252,7 @@ for run in range(args.runs):
             )
     total_time = time.time() - start_time
     print('Time', total_time)
-    print('Time per epoch', total_time / args.epochs)
+    print('Time per epoch', total_time / epochs)
 
     print('Train accuracy:', history['train_acc'][-1])
     print('Test accuracy:', history['test_acc'][-1])
@@ -265,7 +278,7 @@ t.save(
         'stn_placement': args.stn_placement,
         'loop': args.loop,
         'learning_rate': learning_rate,
-        'epochs': args.epochs,
+        'epochs': epochs,
     },
     directory + 'model_details',
 )
