@@ -34,7 +34,7 @@ parser.add_argument(
     help="The number of neurons/filters to use in the localization layers"
 )
 parser.add_argument(
-    "--stn-placement", '-p', type=int, default=0,
+    "--stn-placement", '-p', nargs="*", type=int, default=[0],
     help="Number of layers to place stn after"
 )
 parser.add_argument(
@@ -54,7 +54,7 @@ parser.add_argument(
     help="Constant learning rate to use. Default is 0.01, 0.001 0.0001"
 )
 parser.add_argument(
-    "--weight-decay", "-w", type=float,
+    "--weight-decay", "-w", type=float, default=0,
 )
 
 epoch_parser = parser.add_mutually_exclusive_group(required=True)
@@ -109,7 +109,7 @@ if args.iterations:
           'epochs ==',epochs*len(train_loader),'iterations')
 else:
     epochs = args.epochs
-    print('Using',epochs,'epochs == ',epochs*len(train_loader),'iterations')
+    print('Using',epochs,'epochs ==',epochs*len(train_loader),'iterations')
 assert epochs > 0
 
 print('Using model:', args.model)
@@ -127,7 +127,10 @@ optimizer_fn = {
 }.get(args.optimizer)
 assert not optimizer_fn is None, 'Could not find optimizer'
 
-assert localization_class or (not args.stn_placement and not args.loop)
+# user must either specify a localization, or keep the
+# defaultvalue/assign 0-value to loop and stn_placement
+assert localization_class or (not args.loop and (
+        not args.stn_placement or args.stn_placement == [0]))
 
 #%% Setup
 if args.lr is None:

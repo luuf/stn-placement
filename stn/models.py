@@ -1,24 +1,31 @@
 #%%
 import torch as t
+import torch.nn.functional as F
 import numpy as np
 from functools import reduce
 # import utils
 
+
 afn = t.nn.ReLU
 
-#%%
+
 def get_output_shape(input_shape, module):
-    dummy = t.tensor(np.zeros([1]+list(input_shape), dtype='float32')) # pylint: disable=not-callable
+    dummy = t.tensor( # pylint: disable=not-callable
+        np.zeros([1]+list(input_shape),
+        dtype='float32')
+    )
     out = module(dummy)
     return out.shape[1:]
-#%%
+
+
 class Flatten(t.nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
 
+
 class Downsample(t.nn.Module):
     def forward(self, input):
-        return t.nn.functional.interpolate(
+        return F.interpolate(
             input,
             scale_factor=0.5,
             mode='bilinear'
@@ -37,6 +44,7 @@ class Modular_Model(t.nn.Module):
         else:
             self.param = self.default_parameters
 
+
 class Localization(Modular_Model):
     def __init__(self, parameters, input_shape):
         super().__init__(parameters)
@@ -47,29 +55,45 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=not-callable,no-member
+        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=no-member
 
     def forward(self, x):
         return self.affine_param(self.model(x))
 
+
 class Classifier(Modular_Model):
-    def __init__(self, parameters, input_shape, localization_class, localization_parameters, stn_placement, loop, data_tag):
+    def __init__(self, parameters, input_shape, localization_class,
+                 localization_parameters, stn_placement, loop, data_tag):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
-        self.pre_stn = t.nn.Sequential(*layers[:stn_placement])
-        self.post_stn = t.nn.Sequential(*layers[stn_placement:])
+        if len(stn_placement) > 0:
+            split_at = zip([0]+stn_placement[:-1],stn_placement)
+            self.pre_stn = [t.nn.Sequential(*layers[s:e]) for s,e in split_at]
+            self.final_layers = t.nn.Sequential(*layers[stn_placement[-1]:])
+        else:
+            self.pre_stn = []
+            self.final_layers = layers
 
-        self.loop = loop
+        self.loop_models = (
+            [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)]
+            if loop else None)
 
         if localization_class:
-            in_shape = get_output_shape(input_shape, self.pre_stn)
-            self.localization = localization_class(localization_parameters, in_shape)
+            shape = input_shape
+            self.localization = []
+            for model in self.pre_stn:
+                shape = get_output_shape(shape, model)
+                self.localization.append(localization_class(localization_parameters, shape))
         else:
             self.localization = None
 
         if data_tag in ['translate','clutter']:
-            print("STN will downsample, since the data is", data_tag)
+            print('STN will downsample, since the data is', data_tag)
+
+            assert(not stn_placement or len(stn_placement) == 1,
+                   'Have not implemented downsample for multiple stns')
+
             self.downsample = Downsample()
             if loop:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
@@ -77,24 +101,22 @@ class Classifier(Modular_Model):
                 ))
             else:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    self.pre_stn, self.downsample, self.post_stn
+                    *self.pre_stn, self.downsample, self.final_layers
                 ))
         else:
             self.downsample = None
             final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                self.pre_stn, self.post_stn
+                *self.pre_stn, self.final_layers
             ))
 
         self.output = self.out(np.prod(final_shape))
 
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
-    def stn(self, x, y = None):
-        theta = self.localization(x)
+    def stn(self, theta, y):
         theta = theta.view(-1, 2, 3)
-        to_transform = x if y is None else y
-        grid = t.nn.functional.affine_grid(theta, to_transform.size())
-        transformed = t.nn.functional.grid_sample(to_transform, grid)
+        grid = F.affine_grid(theta, y.size())
+        transformed = F.grid_sample(y, grid)
         if self.downsample:
             transformed = self.downsample(transformed)
         # plt.imshow(transformed.detach()[0,0,:,:])
@@ -105,18 +127,23 @@ class Classifier(Modular_Model):
     
     def forward(self, x):
         if self.localization:
-            if self.loop:
-                x = self.stn(self.pre_stn(x), x)
-                x = self.pre_stn(x)
+            if self.loop_models:
+                input_image = x
+                theta = t.tensor(np.identity(3,dtype=np.float32)) # pylint: disable=not-callable
+                for l,m in zip(self.localization,self.loop_models):
+                    theta = F.pad(l(m(x)),(0,3)).view((-1,3,3)) * theta
+                    x = self.stn(theta[:,0:2], input_image)
+                x = m(x)
             else:
-                x = self.pre_stn(x)
-                x = self.stn(x)
+                for l,m in zip(self.localization,self.pre_stn):
+                    localization_input = m(x)
+                    x = self.stn(l(localization_input), localization_input)
 
         # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
         #     print('Layer', i, ': ', layer)
         #     print('Shape', x.shape)
         #     x = layer(x)
-        x = self.post_stn(x)
+        x = self.final_layers(x)
 
         return self.output(x.view(x.size(0),-1))
 
@@ -376,6 +403,7 @@ class SVHN_CNN(Classifier):
             afn(),
             t.nn.Dropout(0.5),
         ])
+
 
 # dictionaries for mapping arguments to classes
 localization_dict = {
