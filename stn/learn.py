@@ -50,8 +50,8 @@ parser.add_argument(
     help="Name of the optimizer"
 )
 parser.add_argument(
-    "--lr", type=float, default=0.1,
-    help="Constant learning rate to use. Default is 0.1"
+    "--lr", type=float, default=0.01,
+    help="Constant learning rate to use. Default is 0.01"
 )
 parser.add_argument(
     "--switch-after-iterations", type=int, default=np.inf,
