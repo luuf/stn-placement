@@ -138,7 +138,7 @@ assert localization_class or (not args.loop and (
 
 #%% Setup
 learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
-switch_after_epochs = (np.inf if args.swith_after_iterations == np.inf 
+switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
                        else args.switch_after_iterations // len(train_loader))
 print('Will switch learning rate after',switch_after_epochs,'epochs',
        '==', switch_after_epochs * len(train_loader), 'iterations')
@@ -233,14 +233,6 @@ for run in range(args.runs):
     )
     model = model.to(device)
 
-    print('TEMP')
-    loss, correct = test()
-    print('test loss', loss, 'acc', correct)
-    print('ENDTEMP')
-
-
-    # initialize
-
     # Train model
     start_time = time.time()
 
@@ -259,8 +251,10 @@ for run in range(args.runs):
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print(
                 'Saved model at epoch', epoch, '\n',
-                'Train','loss',history['train_loss'][epoch],'acc',history['train_acc'][epoch],'\n',
-                'Test', 'loss',history['test_loss'][epoch], 'acc',history['test_acc'][epoch],'\n'
+                'Train loss {} acc {} \n'.format(
+                    history['train_loss'][epoch], history['train_acc'][epoch]),
+                'Test  loss {} acc {} \n'.format(
+                    history['test_loss'][epoch], history['test_acc'][epoch]),
             )
     total_time = time.time() - start_time
     print('Time', total_time)
