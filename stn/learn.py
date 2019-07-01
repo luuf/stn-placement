@@ -239,7 +239,7 @@ for run in range(args.runs):
     optimizer = optimizer_fn(model.parameters(), args.lr, weight_decay=args.weight_decay)
     scheduler = t.optim.lr_scheduler.LambdaLR(
         optimizer,
-        lambda e: learning_rate_multipliers[e // switch_after_epochs]
+        lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
     )
 
     for epoch in range(epochs):
