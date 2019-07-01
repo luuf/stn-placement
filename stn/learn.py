@@ -194,8 +194,6 @@ def test(epoch = None):
                 loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)])
                 pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
                 correct += pred.eq(target).all(1).sum().item()
-                print(pred[0])
-                print(target[0])
             else:
                 loss = cross_entropy_sum(output, target)
                 pred = output.argmax(1, keepdim=True)
