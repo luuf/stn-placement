@@ -242,6 +242,7 @@ for run in range(args.runs):
         [
             {'params': model.pre_stn.parameters()},
             {'params': model.final_layers.parameters()},
+            {'params': model.output.parameters()},
             {'params': model.localization.parameters(),
              'lr': args.lr * args.loc_lr_multiplier}
         ],
