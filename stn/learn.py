@@ -50,8 +50,12 @@ parser.add_argument(
     help="Name of the optimizer"
 )
 parser.add_argument(
-    "--lr", type=float,
-    help="Constant learning rate to use. Default is 0.01, 0.001 0.0001"
+    "--lr", type=float, default=0.1,
+    help="Constant learning rate to use. Default is 0.1"
+)
+parser.add_argument(
+    "--switch-after-iterations", type=int, default=np.inf,
+    help="How many iterations until learning rate is multiplied by 0.1"
 )
 parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
@@ -133,14 +137,11 @@ assert localization_class or (not args.loop and (
         not args.stn_placement or args.stn_placement == [0]))
 
 #%% Setup
-if args.lr is None:
-    learning_rate = 0.01
-    learning_rate_multipliers = [1,0.1,0.01]
-    switch_after_epochs = 214 # 50000 * 256 / 60000
-else:
-    learning_rate = args.lr
-    learning_rate_multipliers = [1]
-    switch_after_epochs = np.inf
+learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
+switch_after_epochs = (np.inf if args.swith_after_iterations == np.inf 
+                       else args.switch_after_iterations // len(train_loader))
+print('Will switch learning rate after',switch_after_epochs,'epochs',
+       '==', switch_after_epochs * len(train_loader), 'iterations')
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu") # pylint: disable=no-member
 
@@ -156,19 +157,19 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device) 
         optimizer.zero_grad()
+
         output = model(data)
 
         if args.dataset == 'svhn':
             loss = sum([cross_entropy(output[i],target[:,i]) for i in range(5)])
             pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
-            history['train_acc'][epoch] += pred.eq(target).all(1).sum()
+            history['train_acc'][epoch] += pred.eq(target).all(1).sum().item()
         else:
             loss = cross_entropy(output, target)
             pred = output.argmax(1, keepdim=True)
             history['train_acc'][epoch] += pred.eq(target.view_as(pred)).sum().item()
         loss.backward()
         optimizer.step()
-
         history['train_loss'][epoch] += loss.item() * data.shape[0]
 
         if batch_idx % 50 == 0 and device == t.device("cpu"): # pylint: disable=no-member
@@ -186,16 +187,20 @@ def test(epoch = None):
         correct = 0
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
+
             output = model(data)
 
             if args.dataset == 'svhn':
-                test_loss += sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
+                loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)])
                 pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
-                correct += pred.eq(target).all(1).sum()
+                correct += pred.eq(target).all(1).sum().item()
+                print(pred[0])
+                print(target[0])
             else:
-                test_loss += cross_entropy_sum(output, target).item()
+                loss = cross_entropy_sum(output, target)
                 pred = output.argmax(1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
+            test_loss += loss.item()
     
     test_loss /= len(test_loader.dataset)
     correct /= len(test_loader.dataset)
@@ -237,10 +242,9 @@ for run in range(args.runs):
     # initialize
 
     # Train model
-    print('Switching learning rate after', switch_after_epochs)
     start_time = time.time()
 
-    optimizer = optimizer_fn(model.parameters(), learning_rate, weight_decay=args.weight_decay)
+    optimizer = optimizer_fn(model.parameters(), args.lr, weight_decay=args.weight_decay)
     scheduler = t.optim.lr_scheduler.LambdaLR(
         optimizer,
         lambda e: learning_rate_multipliers[e // switch_after_epochs]
