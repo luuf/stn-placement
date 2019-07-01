@@ -188,14 +188,14 @@ def test(epoch = None):
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-        if args.dataset == 'svhn':
-            test_loss += sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
-            pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
-            correct += pred.eq(target).all(1).sum()
-        else:
-            test_loss += cross_entropy_sum(output, target).item()
-            pred = output.argmax(1, keepdim=True)
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            if args.dataset == 'svhn':
+                test_loss += sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)]).item()
+                pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
+                correct += pred.eq(target).all(1).sum()
+            else:
+                test_loss += cross_entropy_sum(output, target).item()
+                pred = output.argmax(1, keepdim=True)
+                correct += pred.eq(target.view_as(pred)).sum().item()
     
     test_loss /= len(test_loader.dataset)
     correct /= len(test_loader.dataset)
@@ -227,6 +227,12 @@ for run in range(args.runs):
         args.loop, args.dataset,
     )
     model = model.to(device)
+
+    print('TEMP')
+    loss, correct = test()
+    print('test loss', loss, 'acc', correct)
+    print('ENDTEMP')
+
 
     # initialize
 
