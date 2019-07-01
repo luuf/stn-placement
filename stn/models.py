@@ -37,8 +37,6 @@ class Modular_Model(t.nn.Module):
         super().__init__()
 
         if not (parameters is None or parameters == []):
-            print(parameters)
-            print(self.default_parameters)
             assert len(parameters) == len(self.default_parameters)
             self.param = parameters 
         else:
@@ -55,7 +53,7 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=no-member
+        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=no-member,not-callable
 
     def forward(self, x):
         return self.affine_param(self.model(x))
@@ -69,19 +67,19 @@ class Classifier(Modular_Model):
         layers = self.get_layers(input_shape)
         if len(stn_placement) > 0:
             split_at = zip([0]+stn_placement[:-1],stn_placement)
-            self.pre_stn = [t.nn.Sequential(*layers[s:e]) for s,e in split_at]
+            self.pre_stn = t.nn.ModuleList([t.nn.Sequential(*layers[s:e]) for s,e in split_at])
             self.final_layers = t.nn.Sequential(*layers[stn_placement[-1]:])
         else:
             self.pre_stn = []
             self.final_layers = layers
 
-        self.loop_models = (
-            [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)]
-            if loop else None)
+        self.loop_models = t.nn.ModuleList(
+                [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)]
+            ) if loop else None
 
         if localization_class:
             shape = input_shape
-            self.localization = []
+            self.localization = t.nn.ModuleList()
             for model in self.pre_stn:
                 shape = get_output_shape(shape, model)
                 self.localization.append(localization_class(localization_parameters, shape))
