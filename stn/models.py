@@ -73,9 +73,14 @@ class Classifier(Modular_Model):
             self.pre_stn = []
             self.final_layers = layers
 
-        self.loop_models = t.nn.ModuleList(
-                [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)]
-            ) if loop else None
+        if loop:
+            self.loop_models = t.nn.ModuleList(
+                    [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
+            self.base_theta = t.tensor(np.identity(3, dtype=np.float32)) # pylint: disable=not-callable
+            # I need to define theta as a tensor before forward,
+            # to automatically port it to device
+        else:
+            self.loop_models = None
 
         if localization_class:
             shape = input_shape
@@ -89,8 +94,8 @@ class Classifier(Modular_Model):
         if data_tag in ['translate','clutter']:
             print('STN will downsample, since the data is', data_tag)
 
-            assert(not stn_placement or len(stn_placement) == 1,
-                   'Have not implemented downsample for multiple stns')
+            assert not stn_placement or len(stn_placement) == 1, \
+                'Have not implemented downsample for multiple stns'
 
             self.downsample = Downsample()
             if loop:
@@ -127,9 +132,9 @@ class Classifier(Modular_Model):
         if self.localization:
             if self.loop_models:
                 input_image = x
-                theta = t.tensor(np.identity(3,dtype=np.float32)) # pylint: disable=not-callable
+                theta = self.base_theta
                 for l,m in zip(self.localization,self.loop_models):
-                    theta = F.pad(l(m(x)),(0,3)).view((-1,3,3)) * theta
+                    theta = F.pad(l(m(x)), (0,3)).view((-1,3,3)) * theta
                     x = self.stn(theta[:,0:2], input_image)
                 x = m(x)
             else:
