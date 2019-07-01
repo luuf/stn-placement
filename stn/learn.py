@@ -58,6 +58,10 @@ parser.add_argument(
     help="How many iterations until learning rate is multiplied by 0.1"
 )
 parser.add_argument(
+    "--loc-lr-multiplier", type=float, default=1,
+    help="How much less the localization lr is than the base lr"
+)
+parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
 )
 
@@ -125,11 +129,11 @@ localization_class = models.localization_dict.get(args.localization)
 assert not localization_class is None, 'Could not find localization'
 
 print('Using optimizer',args.optimizer)
-optimizer_fn = {
+optimizer_class = {
     'sgd': t.optim.SGD,
     'adam': t.optim.Adam
 }.get(args.optimizer)
-assert not optimizer_fn is None, 'Could not find optimizer'
+assert not optimizer_class is None, 'Could not find optimizer'
 
 # user must either specify a localization, or keep the
 # defaultvalue/assign 0-value to loop and stn_placement
@@ -234,7 +238,16 @@ for run in range(args.runs):
     # Train model
     start_time = time.time()
 
-    optimizer = optimizer_fn(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    optimizer = optimizer_class(
+        [
+            {'params': model.pre_stn.parameters()},
+            {'params': model.final_layers.parameters()},
+            {'params': model.localization.parameters(),
+             'lr': args.lr * args.loc_lr_multiplier}
+        ],
+        args.lr,
+        weight_decay=args.weight_decay
+    )
     scheduler = t.optim.lr_scheduler.LambdaLR(
         optimizer,
         lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
