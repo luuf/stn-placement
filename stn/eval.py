@@ -5,7 +5,7 @@ import numpy as np
 import models
 import data
 
-directory = "../experiments/precluttered/STFCN2loop/"
+directory = "../experiments/svhn/stn/"
 
 d = t.load(directory+"model_details")
 if d['dataset'] in data.data_dict:
@@ -15,12 +15,14 @@ else:
 
 #%% Functions
 def get_model(prefix):
-    model = models.Net(
-        models.model_dict[d['model']](d['model_parameters']),
-        models.localization_dict[d['localization']](d['localization_parameters']),
+    model = models.model_dict[d['model']](
+        d['model_parameters'],
+        train_loader.dataset[0][0].shape,
+        models.localization_dict[d['localization']],
+        d['localization_parameters'],
         d['stn_placement'],
         d['loop'],
-        train_loader.dataset[0][0].shape
+        d['dataset'],
     )
     model.load_state_dict(t.load(
         directory+str(prefix)+"final",
@@ -52,7 +54,8 @@ def test_stn(model, n=1):
         model = get_model(model)
     model.eval()
     batch = next(iter(test_loader))[0][:n]
-    for image,transformed in zip(batch, model.stn(model.pre_stn(batch), batch)):
+    theta = model.localization[0](model.pre_stn[0](batch))
+    for image,transformed in zip(batch, model.stn(theta.view(-1,2,3), batch)):
         transformed = transformed.detach()
         if image.shape[0] == 1:
             image = image[0,:,:]

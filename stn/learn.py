@@ -239,14 +239,14 @@ for run in range(args.runs):
     start_time = time.time()
 
     optimizer = optimizer_class(
-        [
+        params = [
             {'params': model.pre_stn.parameters()},
             {'params': model.final_layers.parameters()},
             {'params': model.output.parameters()},
             {'params': model.localization.parameters(),
              'lr': args.lr * args.loc_lr_multiplier}
         ],
-        args.lr,
+        lr = args.lr,
         weight_decay=args.weight_decay
     )
     scheduler = t.optim.lr_scheduler.LambdaLR(
@@ -259,15 +259,16 @@ for run in range(args.runs):
         test(epoch)
         scheduler.step()
         if epoch % 10 == 0:
+            print(
+                'Epoch', epoch,
+                'Train loss {} acc {} \n Test  loss {} acc {}'.format(
+                    history['train_loss'][epoch], history['train_acc'][epoch],
+                    history['test_loss'][epoch], history['test_acc'][epoch],
+            ))
+        if epoch % 100 == 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
-            print(
-                'Saved model at epoch', epoch, '\n',
-                'Train loss {} acc {} \n'.format(
-                    history['train_loss'][epoch], history['train_acc'][epoch]),
-                'Test  loss {} acc {} \n'.format(
-                    history['test_loss'][epoch], history['test_acc'][epoch]),
-            )
+            print('Saved model')
     total_time = time.time() - start_time
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
