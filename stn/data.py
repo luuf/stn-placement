@@ -108,7 +108,7 @@ def augmented_cifar(rotate=False,normalize=False):
     assert normalize is False
     return cifar10(rotate,False,True)
 
-def get_precomputed(name, normalize=False):
+def get_precomputed(name, normalize=True):
     try:
         d = np.load('data/'+name+'.npz')
     except FileNotFoundError:
@@ -116,18 +116,21 @@ def get_precomputed(name, normalize=False):
     if normalize:
         m = np.mean(d['trn_x'], (0,2,3)).reshape(1,3,1,1)
         s = np.std(d['trn_x'], (0,2,3)).reshape(1,3,1,1)
-        d['trn_x'] = (d['trn_x']-m) / s
-        d['tst_x'] = (d['tst_x']-m) / s
+        trn_x = (d['trn_x']-m) / s
+        tst_x = (d['tst_x']-m) / s
+    else:
+        trn_x = d['trn_x']
+        tst_x = d['tst_x']
     train_loader = t.utils.data.DataLoader(
         t.utils.data.TensorDataset(
-            t.tensor(d['trn_x']),
+            t.tensor(trn_x),
             t.tensor(d['trn_y']),
         ),
         batch_size=128, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         t.utils.data.TensorDataset(
-            t.tensor(d['tst_x']),
+            t.tensor(tst_x),
             t.tensor(d['tst_y']),
         ),
         batch_size=128, shuffle=True, num_workers=4

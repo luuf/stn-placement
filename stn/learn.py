@@ -93,9 +93,18 @@ rotate_parser.add_argument(
 )
 rotate_parser.add_argument(
     '--no-rotate', dest='rotate', action='store_false',
-    help="Use the data as-is"
 )
 parser.set_defaults(rotate=False)
+
+# normalize_parser = parser.add_mutually_exclusive_group(required=False)
+# rotate_parser.add_argument(
+#     "--normalize", dest="normalize", action="store_true",
+#     help="Normalize the data before feeding it to the network"
+# )
+# rotate_parser.add_argument(
+#     '--no-normalize', dest='normalize', action='store_false',
+# )
+# parser.set_defaults(normalize=False)
 
 args = parser.parse_args()
 
@@ -236,16 +245,15 @@ for run in range(args.runs):
     model = model.to(device)
 
     # Train model
-    start_time = time.time()
+    params = [{'params': model.pre_stn.parameters()},
+              {'params': model.final_layers.parameters()},
+              {'params': model.output.parameters()}]
+    if localization_class:
+        params.append({'params': model.localization.parameters(),
+                       'lr': args.lr * args.loc_lr_multiplier})
 
     optimizer = optimizer_class(
-        params = [
-            {'params': model.pre_stn.parameters()},
-            {'params': model.final_layers.parameters()},
-            {'params': model.output.parameters()},
-            {'params': model.localization.parameters(),
-             'lr': args.lr * args.loc_lr_multiplier}
-        ],
+        params = params,
         lr = args.lr,
         weight_decay=args.weight_decay
     )
@@ -253,6 +261,8 @@ for run in range(args.runs):
         optimizer,
         lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
     )
+
+    start_time = time.time()
 
     for epoch in range(epochs):
         train(epoch)
@@ -269,6 +279,7 @@ for run in range(args.runs):
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
             t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
             print('Saved model')
+
     total_time = time.time() - start_time
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
