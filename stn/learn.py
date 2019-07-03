@@ -164,6 +164,8 @@ optimizer = None
 scheduler = None
 history = None
 
+svhn_datasets = ['svhn','svhn/test','svhn/val']
+
 cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
     model.train()
@@ -173,7 +175,7 @@ def train(epoch):
 
         output = model(data)
 
-        if args.dataset == 'svhn':
+        if args.dataset in svhn_datasets:
             loss = sum([cross_entropy(output[i],target[:,i]) for i in range(5)])
             pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
             history['train_acc'][epoch] += pred.eq(target).all(1).sum().item()
@@ -203,7 +205,7 @@ def test(epoch = None):
 
             output = model(data)
 
-            if args.dataset == 'svhn':
+            if args.dataset in svhn_datasets:
                 loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)])
                 pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
                 correct += pred.eq(target).all(1).sum().item()

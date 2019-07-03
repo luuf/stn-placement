@@ -9,9 +9,11 @@ directory = "../experiments/svhn/stn/"
 
 d = t.load(directory+"model_details")
 if d['dataset'] in data.data_dict:
-    train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
+    train_loader, test_loader = data.data_dict[d['dataset']](
+        d['rotate'], normalize=False)
 else:
-    train_loader, test_loader = data.get_precomputed(d['dataset'])
+    train_loader, test_loader = data.get_precomputed(
+        d['dataset'], normalize=False)
 
 #%% Functions
 def get_model(prefix):
