@@ -272,7 +272,7 @@ for run in range(args.runs):
         scheduler.step()
         if epoch % 10 == 0:
             print(
-                'Epoch', epoch,
+                'Epoch', epoch, '\n' 
                 'Train loss {} acc {} \n Test  loss {} acc {}'.format(
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
