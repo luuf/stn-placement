@@ -2,6 +2,9 @@
 import numpy as np
 import torch as t
 import torchvision as tv
+import pandas as pd
+from skimage import io
+import os
 import PIL
 
 # def oldmnist():
@@ -108,30 +111,68 @@ def augmented_cifar(rotate=False,normalize=False):
     assert normalize is False
     return cifar10(rotate,False,True)
 
-def get_precomputed(name, normalize=True):
-    try:
-        d = np.load('data/'+name+'.npz')
-    except FileNotFoundError:
-        d = np.load('../data/'+name+'.npz')
-    if normalize:
-        m = np.mean(d['trn_x'], (0,2,3)).reshape(1,3,1,1)
-        s = np.std(d['trn_x'], (0,2,3)).reshape(1,3,1,1)
-        trn_x = (d['trn_x']-m) / s
-        tst_x = (d['tst_x']-m) / s
-    else:
-        trn_x = d['trn_x']
-        tst_x = d['tst_x']
+
+class CustomDataset(t.utils.data.Dataset):
+    """Represents any precomputed dataset."""
+
+    def __init__(self, csv_file, root_dir, transform=None, normalize=True):
+        """
+        Args:
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be
+                applied on a sample.
+            normalize: Whether to normalize the data with the
+                mean and std in csv_file
+        """ 
+
+        self.frame = pd.read_csv(csv_file, header=None)
+        self.root_dir = root_dir
+
+        transforms = [tv.transforms.ToTensor()]
+        if normalize:
+            print(
+                (self.frame.iloc[0,0],self.frame.iloc[0,1],self.frame.iloc[0,2],),
+                (self.frame.iloc[0,3],self.frame.iloc[0,4],self.frame.iloc[0,5],),
+            )
+            transforms.append(tv.transforms.Normalize(
+                (float(self.frame.iloc[0,0]),self.frame.iloc[0,1],self.frame.iloc[0,2],),
+                (float(self.frame.iloc[0,3]),self.frame.iloc[0,4],self.frame.iloc[0,5],),
+            ))
+        if transform:
+            transforms.insert(0, transform)
+        self.transform = tv.transforms.Compose(transforms)
+
+
+    def __len__(self):
+        return len(self.frame) - 1 # first line contains metadata
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.root_dir, self.frame.iloc[idx+1, 0])
+
+        image = io.imread(img_name)
+        label = np.array(self.frame.iloc[idx+1, 1:]).astype(int)
+
+        if self.transform:
+            image = self.transform(image)
+
+        return (image, label)
+
+def get_precomputed(path, normalize=True):
+    directory, csv_file = os.path.split(path)
+    images = os.path.join(directory, 'images')
     train_loader = t.utils.data.DataLoader(
-        t.utils.data.TensorDataset(
-            t.tensor(trn_x),
-            t.tensor(d['trn_y']),
+        CustomDataset(
+            os.path.join(directory, csv_file+'train.csv'),
+            images,
+            normalize=normalize,
         ),
         batch_size=128, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
-        t.utils.data.TensorDataset(
-            t.tensor(tst_x),
-            t.tensor(d['tst_y']),
+        CustomDataset(
+            os.path.join(directory, csv_file+'test.csv'),
+            images,
+            normalize=normalize,
         ),
         batch_size=128, shuffle=True, num_workers=4
     )

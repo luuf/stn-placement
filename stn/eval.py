@@ -5,7 +5,7 @@ import numpy as np
 import models
 import data
 
-directory = "../experiments/svhn/stn/"
+directory = "../experiments/svhn/reproduction/nostn/"
 
 d = t.load(directory+"model_details")
 if d['dataset'] in data.data_dict:

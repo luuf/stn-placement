@@ -4,7 +4,7 @@ import torchvision as tv
 import numpy as np
 import time
 from argparse import ArgumentParser
-from os import makedirs
+from os import makedirs, path
 import data
 import models
 from datetime import datetime
@@ -164,7 +164,7 @@ optimizer = None
 scheduler = None
 history = None
 
-svhn_datasets = ['svhn','svhn/test','svhn/val']
+is_svhn = path.dirname(args.dataset) == 'data/svhn'
 
 cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
@@ -175,7 +175,7 @@ def train(epoch):
 
         output = model(data)
 
-        if args.dataset in svhn_datasets:
+        if is_svhn:
             loss = sum([cross_entropy(output[i],target[:,i]) for i in range(5)])
             pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
             history['train_acc'][epoch] += pred.eq(target).all(1).sum().item()
@@ -267,6 +267,10 @@ for run in range(args.runs):
     start_time = time.time()
 
     for epoch in range(epochs):
+        if epoch % 100 == 0 and epoch != 0:
+            # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
+            t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
+            print('Saved model')
         train(epoch)
         test(epoch)
         scheduler.step()
@@ -277,10 +281,6 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-        if epoch % 100 == 0:
-            # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
-            t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
-            print('Saved model')
 
     total_time = time.time() - start_time
     print('Time', total_time)
