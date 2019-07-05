@@ -130,10 +130,6 @@ class CustomDataset(t.utils.data.Dataset):
 
         transforms = [tv.transforms.ToTensor()]
         if normalize:
-            print(
-                (self.frame.iloc[0,0],self.frame.iloc[0,1],self.frame.iloc[0,2],),
-                (self.frame.iloc[0,3],self.frame.iloc[0,4],self.frame.iloc[0,5],),
-            )
             transforms.append(tv.transforms.Normalize(
                 (float(self.frame.iloc[0,0]),self.frame.iloc[0,1],self.frame.iloc[0,2],),
                 (float(self.frame.iloc[0,3]),self.frame.iloc[0,4],self.frame.iloc[0,5],),

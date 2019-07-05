@@ -205,7 +205,7 @@ def test(epoch = None):
 
             output = model(data)
 
-            if args.dataset in svhn_datasets:
+            if is_svhn:
                 loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)])
                 pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
                 correct += pred.eq(target).all(1).sum().item()
