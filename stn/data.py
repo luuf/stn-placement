@@ -131,8 +131,8 @@ class CustomDataset(t.utils.data.Dataset):
         transforms = [tv.transforms.ToTensor()]
         if normalize:
             transforms.append(tv.transforms.Normalize(
-                (float(self.frame.iloc[0,0]),self.frame.iloc[0,1],self.frame.iloc[0,2],),
-                (float(self.frame.iloc[0,3]),self.frame.iloc[0,4],self.frame.iloc[0,5],),
+                (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
+                (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
             ))
         if transform:
             transforms.insert(0, transform)
@@ -145,11 +145,10 @@ class CustomDataset(t.utils.data.Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.root_dir, self.frame.iloc[idx+1, 0])
 
-        image = io.imread(img_name)
+        image = io.imread(img_name).astype(np.float32)
         label = np.array(self.frame.iloc[idx+1, 1:]).astype(int)
 
-        if self.transform:
-            image = self.transform(image)
+        image = self.transform(image)
 
         return (image, label)
 
