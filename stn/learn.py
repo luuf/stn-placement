@@ -164,7 +164,7 @@ optimizer = None
 scheduler = None
 history = None
 
-is_svhn = path.dirname(args.dataset) == 'data/svhn'
+is_svhn = path.dirname(args.dataset)[-4:] == 'svhn'
 
 cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
