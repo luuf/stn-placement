@@ -5,7 +5,7 @@ import numpy as np
 import models
 import data
 
-directory = "../experiments/svhn/reproduction/nostn/"
+directory = "../experiments/svhn/extra/STCNN0/"
 
 d = t.load(directory+"model_details")
 if d['dataset'] in data.data_dict:
@@ -13,7 +13,7 @@ if d['dataset'] in data.data_dict:
         d['rotate'], normalize=False)
 else:
     train_loader, test_loader = data.get_precomputed(
-        d['dataset'], normalize=False)
+        '../'+d['dataset'], normalize=False)
 
 #%% Functions
 def get_model(prefix):
@@ -39,8 +39,8 @@ def print_history(prefixes=[0,1,2],loss=False,start=0):
     for prefix in prefixes:
         history = t.load(directory + str(prefix) + "history")
         print('PREFIX', prefix)
-        print('Max test_acc', np.argmax(history['test_acc']))
-        print('Max train_acc', np.argmax(history['train_acc']))
+        print('Max test_acc', np.argmax(history['test_acc']), np.max(history['test_acc']))
+        print('Max train_acc', np.argmax(history['train_acc']), np.max(history['train_acc']))
         print('Final test_acc', history['test_acc'][-1])
         print('Final train_acc', history['train_acc'][-1])
         if loss:

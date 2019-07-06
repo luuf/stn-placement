@@ -78,7 +78,7 @@ class Classifier(Modular_Model):
                     [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
             self.register_buffer('base_theta', t.tensor(np.identity(3, dtype=np.float32))) # pylint: disable=not-callable
             # I need to define theta as a tensor before forward,
-            # to automatically port it to device
+            # so that it's automatically ported it to device with model
         else:
             self.loop_models = None
 
@@ -355,6 +355,7 @@ class SVHN_CNN(Classifier):
                 t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (5,5), padding=2),
                 afn(),
                 t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+                t.nn.Dropout2d(0.5),
                 # no dropout in first layer
             ),
             t.nn.Sequential(

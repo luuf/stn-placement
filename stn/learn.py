@@ -229,7 +229,7 @@ makedirs(directory, exist_ok=True)
 #%% Run
 for run in range(args.runs):
 
-    prefix = str(run) if args.runs > 1 else ''
+    prefix = str(run)
 
     history = {
         'train_loss': np.zeros(epochs,),
