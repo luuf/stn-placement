@@ -394,7 +394,7 @@ class SVHN_CNN(Classifier):
             t.nn.Sequential(
                 t.nn.Conv2d(self.param[6], self.param[7], kernel_size = (5,5), padding=2),
                 afn(),
-                t.nn.Dropout(0.5),
+                t.nn.Dropout2d(0.5),
             ),
             Flatten(),
             t.nn.Linear(self.param[7] * int(final_side)**2, self.param[8]),
