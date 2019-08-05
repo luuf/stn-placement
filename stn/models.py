@@ -136,7 +136,15 @@ class Classifier(Modular_Model):
                 input_image = x
                 theta = self.base_theta
                 for l,m in zip(self.localization,self.loop_models):
-                    theta = F.pad(l(m(x)), (0,3)).view((-1,3,3)) * theta
+                    mat = F.pad(l(m(x)), (0,3)).view((-1,3,3))
+                    mat[:,2,2] = 1
+                    theta = theta * mat
+                    # note that the new transformation is multiplied
+                    # from the right. Since the parameters are the
+                    # inverse of the parameters that would be applied
+                    # to the numbers, this yields the same parameters
+                    # that would result from each transformation being
+                    # applied after the previous, with the stn.
                     x = self.stn(theta[:,0:2], input_image)
                 x = m(x)
             else:
