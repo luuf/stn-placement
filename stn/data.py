@@ -133,6 +133,8 @@ class CustomDataset(t.utils.data.Dataset):
                 (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
                 (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
             ))
+        else:
+            raise Warning('Not using normalization may lead to values in 0-255')
         if transform:
             transforms.insert(0, transform)
         self.transform = tv.transforms.Compose(transforms)
