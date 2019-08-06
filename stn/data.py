@@ -40,13 +40,12 @@ def mnist(rotate=True,normalize=True,translate=False):
             MNIST_noise(),
         ]
     else:
-        transforms = [
-            tv.transforms.ToTensor(),
-        ]
+        transforms = [tv.transforms.ToTensor()]
         if rotate:
             transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
         if normalize:
-            transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,))) # subtracts first number and divides with second
+            transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,)))
+            # subtracts first number and divides with second
     train_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
             root='data/cache', train=True, download=True,
@@ -134,6 +133,8 @@ class CustomDataset(t.utils.data.Dataset):
                 (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
                 (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
             ))
+        else:
+            raise Warning('Not using normalization may lead to values in 0-255')
         if transform:
             transforms.insert(0, transform)
         self.transform = tv.transforms.Compose(transforms)

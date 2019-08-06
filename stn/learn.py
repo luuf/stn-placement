@@ -149,6 +149,27 @@ assert not optimizer_class is None, 'Could not find optimizer'
 assert localization_class or (not args.loop and (
         not args.stn_placement or args.stn_placement == [0]))
 
+directory = args.name + '/'
+makedirs(directory, exist_ok=True)
+
+# Save model details
+t.save(
+    {
+        'dataset': args.dataset,
+        'rotate': args.rotate,
+        'model': args.model,
+        'model_parameters': args.model_parameters,
+        'localization': args.localization,
+        'localization_parameters': args.localization_parameters,
+        'stn_placement': args.stn_placement,
+        'loop': args.loop,
+        'learning_rate': args.lr,
+        'switch_after_iterations': args.switch_after_iterations,
+        'epochs': epochs,
+    },
+    directory + 'model_details',
+)
+
 #%% Setup
 learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
 switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
@@ -169,27 +190,27 @@ is_svhn = path.dirname(args.dataset)[-4:] == 'svhn'
 cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device), target.to(device) 
+    for batch_idx, (x, y) in enumerate(train_loader):
+        x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
 
-        output = model(data)
+        output = model(x)
 
         if is_svhn:
-            loss = sum([cross_entropy(output[i],target[:,i]) for i in range(5)])
+            loss = sum([cross_entropy(output[i],y[:,i]) for i in range(5)])
             pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
-            history['train_acc'][epoch] += pred.eq(target).all(1).sum().item()
+            history['train_acc'][epoch] += pred.eq(y).all(1).sum().item()
         else:
-            loss = cross_entropy(output, target)
+            loss = cross_entropy(output, y)
             pred = output.argmax(1, keepdim=True)
-            history['train_acc'][epoch] += pred.eq(target.view_as(pred)).sum().item()
+            history['train_acc'][epoch] += pred.eq(y.view_as(pred)).sum().item()
         loss.backward()
         optimizer.step()
-        history['train_loss'][epoch] += loss.item() * data.shape[0]
+        history['train_loss'][epoch] += loss.item() * x.shape[0]
 
         if batch_idx % 50 == 0 and device == t.device("cpu"): # pylint: disable=no-member
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
+                epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
@@ -200,19 +221,19 @@ def test(epoch = None):
         model.eval()
         test_loss = 0
         correct = 0
-        for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+        for x, y in test_loader:
+            x, y = x.to(device), y.to(device)
 
-            output = model(data)
+            output = model(x)
 
             if is_svhn:
-                loss = sum([cross_entropy_sum(output[i],target[:,i]) for i in range(5)])
+                loss = sum([cross_entropy_sum(output[i],y[:,i]) for i in range(5)])
                 pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
-                correct += pred.eq(target).all(1).sum().item()
+                correct += pred.eq(y).all(1).sum().item()
             else:
-                loss = cross_entropy_sum(output, target)
+                loss = cross_entropy_sum(output, y)
                 pred = output.argmax(1, keepdim=True)
-                correct += pred.eq(target.view_as(pred)).sum().item()
+                correct += pred.eq(y.view_as(pred)).sum().item()
             test_loss += loss.item()
     
     test_loss /= len(test_loader.dataset)
@@ -222,9 +243,6 @@ def test(epoch = None):
         history['test_loss'][epoch] = test_loss
         history['test_acc'][epoch] = correct
     return test_loss, correct
-
-directory = args.name + '/'
-makedirs(directory, exist_ok=True)
 
 #%% Run
 for run in range(args.runs):
@@ -257,7 +275,7 @@ for run in range(args.runs):
     optimizer = optimizer_class(
         params = params,
         lr = args.lr,
-        weight_decay=args.weight_decay
+        weight_decay = args.weight_decay,
     )
     scheduler = t.optim.lr_scheduler.LambdaLR(
         optimizer,
@@ -298,20 +316,3 @@ for run in range(args.runs):
 for run in range(args.runs):
     print('Train accuracy:', final_accuracies['train'][run])
     print('Test accuracy:', final_accuracies['test'][run])
-# Save model details
-t.save(
-    {
-        'dataset': args.dataset,
-        'rotate': args.rotate,
-        'model': args.model,
-        'model_parameters': args.model_parameters,
-        'localization': args.localization,
-        'localization_parameters': args.localization_parameters,
-        'stn_placement': args.stn_placement,
-        'loop': args.loop,
-        'learning_rate': args.lr,
-        'switch_after_iterations': args.switch_after_iterations,
-        'epochs': epochs,
-    },
-    directory + 'model_details',
-)

@@ -76,7 +76,10 @@ class Classifier(Modular_Model):
         if loop:
             self.loop_models = t.nn.ModuleList(
                     [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
-            self.register_buffer('base_theta', t.tensor(np.identity(3, dtype=np.float32))) # pylint: disable=not-callable
+            self.register_buffer(
+                'base_theta',
+                t.tensor(np.identity(3, dtype=np.float32)) # pylint: disable=not-callable
+            )
             # I need to define theta as a tensor before forward,
             # so that it's automatically ported it to device with model
         else:
@@ -97,17 +100,17 @@ class Classifier(Modular_Model):
             assert not stn_placement or len(stn_placement) == 1, \
                 'Have not implemented downsample for multiple stns'
 
-            self.downsample = Downsample()
+            self.size_transform = np.array([1,1,2,2])
             if loop:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    self.downsample, self.pre_stn, self.post_stn
+                    Downsample(), *self.pre_stn, self.post_stn
                 ))
             else:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    *self.pre_stn, self.downsample, self.final_layers
+                    *self.pre_stn, Downsample(), self.final_layers
                 ))
         else:
-            self.downsample = None
+            self.size_transform = np.array([1,1,1,1])
             final_shape = get_output_shape(input_shape, t.nn.Sequential(
                 *self.pre_stn, self.final_layers
             ))
@@ -118,10 +121,9 @@ class Classifier(Modular_Model):
     
     def stn(self, theta, y):
         theta = theta.view(-1, 2, 3)
-        grid = F.affine_grid(theta, y.size())
+        size = np.array(y.shape) // self.size_transform
+        grid = F.affine_grid(theta, t.Size(size))
         transformed = F.grid_sample(y, grid)
-        if self.downsample:
-            transformed = self.downsample(transformed)
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
         # plt.imshow(to_transform.detach()[0,0,:,:])
@@ -134,7 +136,15 @@ class Classifier(Modular_Model):
                 input_image = x
                 theta = self.base_theta
                 for l,m in zip(self.localization,self.loop_models):
-                    theta = F.pad(l(m(x)), (0,3)).view((-1,3,3)) * theta
+                    mat = F.pad(l(m(x)), (0,3)).view((-1,3,3))
+                    mat[:,2,2] = 1
+                    theta = theta * mat
+                    # note that the new transformation is multiplied
+                    # from the right. Since the parameters are the
+                    # inverse of the parameters that would be applied
+                    # to the numbers, this yields the same parameters
+                    # that would result from each transformation being
+                    # applied after the previous, with the stn.
                     x = self.stn(theta[:,0:2], input_image)
                 x = m(x)
             else:
