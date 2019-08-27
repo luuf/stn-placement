@@ -103,7 +103,7 @@ class Classifier(Modular_Model):
             self.size_transform = np.array([1,1,2,2])
             if loop:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    Downsample(), *self.pre_stn, self.post_stn
+                    Downsample(), *self.pre_stn, self.final_layers
                 ))
             else:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
