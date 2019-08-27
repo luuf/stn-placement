@@ -7,8 +7,8 @@ import models
 import data
 from scipy.misc import imrotate
 
-# directory = "../experiments/mnist/statistics/translate/STFCN0/"
-directory = "../experiments/mnist/statistics/STCNN0/"
+directory = "../experiments/mnist/statistics/translate/STFCN0/"
+# directory = "../experiments/mnist/statistics/STCNN0/"
 
 d = t.load(directory+"model_details")
 if d['dataset'] in data.data_dict:
@@ -109,7 +109,7 @@ def rotation_statistics(model=0, plot=True):
 
         for x, y in unrotated_test:
             angles = np.random.uniform(-90, 90, x.shape[0])
-            rot_x = t.tensor([ # pylint: disable=not-callable
+            rot_x = t.tensor([
                 imrotate(im[0], angle) for im, angle in zip(x, angles)
             ], dtype=t.float).reshape(-1, 1, 28, 28)
             # for unfathomable reasons, imrotate converts the image to 0-255

@@ -29,7 +29,7 @@ class MNIST_noise:
         indices = np.random.randint(0,60000,6)
         for i in indices:
             img += self.transform(self.data[i][0])
-        return t.clamp(img, max=1) # pylint: disable=no-member
+        return t.clamp(img, max=1)
 
 def mnist(rotate=True,normalize=True,translate=False):
     if translate:

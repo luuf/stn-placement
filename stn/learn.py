@@ -177,7 +177,7 @@ switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf
 print('Will switch learning rate after',switch_after_epochs,'epochs',
        '==', switch_after_epochs * len(train_loader), 'iterations')
 
-device = t.device("cuda" if t.cuda.is_available() else "cpu") # pylint: disable=no-member
+device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
 final_accuracies = {'train':[], 'test':[]}
 # These need to be defined before train and test
@@ -198,7 +198,7 @@ def train(epoch):
 
         if is_svhn:
             loss = sum([cross_entropy(output[i],y[:,i]) for i in range(5)])
-            pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
+            pred = t.stack(output, 2).argmax(1)
             history['train_acc'][epoch] += pred.eq(y).all(1).sum().item()
         else:
             loss = cross_entropy(output, y)
@@ -208,7 +208,7 @@ def train(epoch):
         optimizer.step()
         history['train_loss'][epoch] += loss.item() * x.shape[0]
 
-        if batch_idx % 50 == 0 and device == t.device("cpu"): # pylint: disable=no-member
+        if batch_idx % 50 == 0 and device == t.device("cpu"):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -228,7 +228,7 @@ def test(epoch = None):
 
             if is_svhn:
                 loss = sum([cross_entropy_sum(output[i],y[:,i]) for i in range(5)])
-                pred = t.stack(output, 2).argmax(1) # pylint: disable=no-member
+                pred = t.stack(output, 2).argmax(1)
                 correct += pred.eq(y).all(1).sum().item()
             else:
                 loss = cross_entropy_sum(output, y)

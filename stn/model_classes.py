@@ -5,7 +5,7 @@ from functools import reduce
 
 
 def get_output_shape(input_shape, module):
-    dummy = t.tensor( # pylint: disable=not-callable
+    dummy = t.tensor(
         np.zeros([1]+list(input_shape),
         dtype='float32')
     )
@@ -43,7 +43,7 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float)) # pylint: disable=no-member,not-callable
+        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
 
     def forward(self, x):
         return self.affine_param(self.model(x))
@@ -68,7 +68,7 @@ class Classifier(Modular_Model):
                     [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
             self.register_buffer(
                 'base_theta',
-                t.tensor(np.identity(3, dtype=np.float32)) # pylint: disable=not-callable
+                t.tensor(np.identity(3, dtype=np.float32))
             )
             # I need to define theta as a tensor before forward,
             # so that it's automatically ported it to device with model
