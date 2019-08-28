@@ -135,7 +135,7 @@ class Classifier(Modular_Model):
                     # to the numbers, this yields the same parameters
                     # that would result from each transformation being
                     # applied after the previous, with the stn.
-                    x = self.stn(theta[0:2,:], input_image)
+                    x = self.stn(theta[:,0:2,:], input_image)
                 x = m(x)
             else:
                 for l,m in zip(self.localization,self.pre_stn):
