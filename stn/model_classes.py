@@ -126,11 +126,9 @@ class Classifier(Modular_Model):
                 input_image = x
                 theta = self.base_theta
                 for l,m in zip(self.localization,self.loop_models):
-                    print('theta',theta)
                     mat = F.pad(l(m(x)), (0,3)).view((-1,3,3))
                     mat[:,2,2] = 1
-                    print('mat',mat)
-                    theta = torch.matmul(theta,mat)
+                    theta = t.matmul(theta,mat)
                     # note that the new transformation is multiplied
                     # from the right. Since the parameters are the
                     # inverse of the parameters that would be applied
