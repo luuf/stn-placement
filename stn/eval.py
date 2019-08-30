@@ -7,18 +7,21 @@ import models
 import data
 from scipy.misc import imrotate
 
-directory = "../experiments/mnist/statistics/translate/STFCN0/"
-# directory = "../experiments/mnist/statistics/STCNN0/"
-
-d = t.load(directory+"model_details")
-if d['dataset'] in data.data_dict:
-    train_loader, test_loader = data.data_dict[d['dataset']](
-        d['rotate'])
-else:
-    train_loader, test_loader = data.get_precomputed(
-        '../'+d['dataset'], normalize=False)
+directory, d, train_loader, test_loader = None, None, None, None
 
 #%% Functions
+def load_data(data_dir):
+    global directory, d, train_loader, test_loader
+    directory = data_dir
+
+    d = t.load(directory+"model_details")
+    if d['dataset'] in data.data_dict:
+        train_loader, test_loader = data.data_dict[d['dataset']](
+            d['rotate'])
+    else:
+        train_loader, test_loader = data.get_precomputed(
+            '../'+d['dataset'], normalize=False)
+
 def get_model(prefix):
     model = models.model_dict[d['model']](
         d['model_parameters'],
@@ -75,25 +78,43 @@ def test_stn(model=0, n=4):
         plt.imshow(transformed)
         plt.show()
 
-def angle_from_matrix(thetas):
-    # # V1: Inverts in order to get parameters for the number's
-    # #     transformation, and decomposes into Scale Shear Rot
-    # mat = F.pad(thetas, (0, 3)).view(-1,3,3)
-    # mat[:,2,2] = 1
-    # transform = t.inverse(mat)
-    # return (np.arctan(transform[:,0,1] / transform[:,0,0])) * 180 / np.pi
-    # # negated because the y-axis is inverted, and because I use
-    # # counter-clockwise as positive direction
+def angle_from_matrix(thetas, all_transformations=False):
+    # V1: Inverts in order to get parameters for the number's
+    #     transformation, and decomposes into Scale Shear Rot
+    mat = F.pad(thetas, (0, 3)).view(-1,3,3)
+    mat[:,2,2] = 1
+    transform = t.inverse(mat)
+    angle = (np.arctan(transform[:,0,1] / transform[:,0,0])) * 180 / np.pi
+    # negated because the y-axis is inverted, and because I use
+    # counter-clockwise as positive direction
+    if not all_transformations:
+        return angle
 
-    # V2: Decomposes the window's transformation into Scale Shear Rot.
-    #     This Rot*-1 is equal to the inverse's decomposed into Rot Shear Scale.
-    thetas = thetas.view(-1,2,3)
-    return -(np.arctan(thetas[:,0,1] / thetas[:,0,0])) * 180 / np.pi
-    # negated because the images is transformed in the reverse
-    # of the predicted transform, because the y-axis is inverted,
-    # and because I use counter-clockwise as positive direction
+    det = transform[:,0,0]*transform[:,1,1] - transform[:,0,1]*transform[:,1,0]
+    shear = (transform[:,0,0]*transform[:,1,0] + transform[:,0,1]*transform[:,1,1] / det)
+    scale_x = np.sqrt(transform[:,0,0]**2 + transform[:,0,1]**2)
+    scale_y = det / scale_x
+    return angle, shear, scale_x, scale_y
 
-def rotation_statistics(model=0, plot=True):
+    # # V2: Decomposes the window's transformation into Scale Shear Rot.
+    # #     This Rot*-1 is equal to the inverse's decomposed into Rot Shear Scale.
+    # thetas = thetas.view(-1,2,3)
+    # return -(np.arctan(thetas[:,0,1] / thetas[:,0,0])) * 180 / np.pi
+    # # negated because the images is transformed in the reverse
+    # # of the predicted transform, because the y-axis is inverted,
+    # # and because I use counter-clockwise as positive direction
+
+def plot_angles(rot, pred):
+    heatmap, xedges, yedges = np.histogram2d(
+        rot, pred, bins=95, range=[[-95,95],[-95,95]])
+    extent = [-95, 95, -95, 95]
+    plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.show()
+
+def rotation_statistics(model=0, plot='sep', di=None, all_transformations=False):
+    if di is not None:
+        load_data(di)
+
     if type(model) == int:
         model = get_model(model)
 
@@ -103,6 +124,18 @@ def rotation_statistics(model=0, plot=True):
 
     rotated_angles = np.array([])
     predicted_angles = np.array([])
+    rot_by_label = []
+    pred_by_label = []
+
+    labels = np.array([])
+    
+    if all_transformations:
+        shears = np.array([])
+        scale_xs = np.array([])
+        scale_ys = np.array([])
+        shear_by_label = []
+        sx_by_label = []
+        sy_by_label = []
 
     with t.no_grad():
         model.eval()
@@ -117,7 +150,16 @@ def rotation_statistics(model=0, plot=True):
             theta = model.localization[0](model.pre_stn[0](rot_x))
 
             rotated_angles = np.append(rotated_angles, angles)
-            predicted_angles = np.append(predicted_angles, angle_from_matrix(theta))
+            labels = np.append(labels, y)
+
+            if all_transformations:
+                angle, shear, sx, sy = angle_from_matrix(theta, all_transformations=True)
+                predicted_angles = np.append(predicted_angles, angle)
+                shears = np.append(shears, shear)
+                scale_xs = np.append(scale_xs, sx)
+                scale_ys = np.append(scale_ys, sy)
+            else:
+                predicted_angles = np.append(predicted_angles, angle_from_matrix(theta))
 
             # # DEBUGGING
             # plt.imshow(x[0,0])
@@ -134,13 +176,40 @@ def rotation_statistics(model=0, plot=True):
             # print('theta', theta[0])
             # raise SystemExit()
 
-    if plot:
-        heatmap, xedges, yedges = np.histogram2d(rotated_angles, predicted_angles, bins=50)
-        extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-        plt.imshow(heatmap.T, extent=extent, origin='lower')
-        plt.show()
-        
-    return rotated_angles, predicted_angles
+    for i in range(10):
+        indices = labels==i
+        rot_by_label.append(rotated_angles[indices])
+        pred_by_label.append(predicted_angles[indices])
+
+        if all_transformations:
+            shear_by_label.append(shears[indices])
+            sx_by_label.append(scale_xs[indices])
+            sy_by_label.append(scale_ys[indices])
+
+    if plot == 'sep': # plot all digits separately
+        for i in range(10):
+            print('Plotting label', i)
+            plot_angles(rot_by_label[i], pred_by_label[i])
+
+            if all_transformations:
+                plot_angles(rot_by_label[i], 100 * shear_by_label[i])
+                plot_angles(rot_by_label[i], 50 * sx_by_label[i])
+                plot_angles(rot_by_label[i], 50 * sy_by_label[i])
+                # plt.hist(shear_by_label[i], 50, range=(-1.25, 1.25))
+                # plt.figure()
+                # plt.hist(sx_by_label[i], 50, range=(0.5, 2.5))
+                # plt.figure()
+                # plt.hist(sy_by_label[i], 50, range=(0.5, 2.5))
+                # plt.show()
+
+    if plot == 'all': # plot all data at once
+        plot_angles(rotated_angles, predicted_angles)
+
+    if all_transformations:
+        return rot_by_label, pred_by_label, shear_by_label, sx_by_label, sy_by_label
+    else:
+        return rot_by_label, pred_by_label
+
 
 def distance_from_matrix(thetas):
     thetas = thetas.view((-1,2,3))
@@ -151,7 +220,10 @@ def distance_from_matrix(thetas):
     # both are negated because the digits are transformed in the
     # reverse of predicted transform, and because y is the wrong way
 
-def zooming_statistics(model=0, plot=True):
+def zooming_statistics(model=0, plot=True, di=None):
+    if di is not None:
+        load_data(di)
+
     if type(model) == int:
         model = get_model(model)
 
@@ -174,7 +246,8 @@ def zooming_statistics(model=0, plot=True):
             theta = model.localization[0](model.pre_stn[0](translated))
 
             translated_distance = np.append(translated_distance, distance, axis=0)
-            predicted_distance = np.append(predicted_distance, distance_from_matrix(theta), axis=0)
+            predicted_distance = np.append(
+                predicted_distance, distance_from_matrix(theta), axis=0)
 
             # # DEBUGGING
             # plt.imshow(x[0,0])
@@ -188,16 +261,22 @@ def zooming_statistics(model=0, plot=True):
             # raise SystemExit()
 
     if plot:
-        heatmap, xedges, yedges = np.histogram2d(translated_distance[:,0], predicted_distance[:,0], bins=(33,33))
+        heatmap, xedges, yedges = np.histogram2d(  # TD: add range to this
+            translated_distance[:,0], predicted_distance[:,0], bins=(33,33))
         extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
         plt.imshow(heatmap.T, extent=extent, origin='lower')
         plt.figure()
 
-        heatmap, xedges, yedges = np.histogram2d(translated_distance[:,1], predicted_distance[:,1], bins=(33,33))
+        heatmap, xedges, yedges = np.histogram2d(  # TD: add range to this
+            translated_distance[:,1], predicted_distance[:,1], bins=(33,33))
         extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
         plt.imshow(heatmap.T, extent=extent, origin='lower')
         plt.show()
 
     return translated_distance, predicted_distance
+
+#%%
+load_data("../experiments/mnist/statistics/rotate/STFCN3loop/")
+# load_data("../experiments/mnist/statistics/STCNN0/")
 
 #%%
