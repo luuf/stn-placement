@@ -46,7 +46,7 @@ class CNNFCN_localization(Localization): # mnist loc that emulates a looped laye
         t.nn.MaxPool2d(kernel_size = 2, stride = 2),
         afn(),
         Flatten(),
-        t.nn.Linear(np.prod(in_shape), self.param[1]),
+        t.nn.Linear(self.param[0] * ((in_shape[1] - 8)//2)**2, self.param[1]),
         afn(),
         t.nn.Linear(self.param[1], self.param[2]),
         afn(),
