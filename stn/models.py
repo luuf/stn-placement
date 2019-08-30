@@ -37,6 +37,23 @@ class FCN_localization(Localization):
             afn()
         ])
 
+class CNNFCN_localization(Localization): # mnist loc that emulates a looped layer without sharing parameters
+    default_parameters = [64, 32, 32, 32]
+
+    def get_layers(self, in_shape):
+        return t.nn.ModuleList([
+        t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
+        t.nn.MaxPool2d(kernel_size = 2, stride = 2),
+        afn(),
+        Flatten(),
+        t.nn.Linear(np.prod(in_shape), self.param[1]),
+        afn(),
+        t.nn.Linear(self.param[1], self.param[2]),
+        afn(),
+        t.nn.Linear(self.param[2], self.param[3]),
+        afn()
+    ])
+
 class CNN_localization(Localization):
     default_parameters = [20,20,20]
 
@@ -254,6 +271,7 @@ localization_dict = {
     'CNN':   CNN_localization,
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
+    'CNNFCN':CNNFCN_localization,
     'small': Small_localization,
     'SVHN-l':SVHN_large,
     'SVHN-s':SVHN_small,
