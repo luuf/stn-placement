@@ -104,6 +104,7 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # of the predicted transform, because the y-axis is inverted,
     # # and because I use counter-clockwise as positive direction
 
+
 def plot_angles(rot, pred):
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=95, range=[[-95,95],[-95,95]])
@@ -176,15 +177,21 @@ def rotation_statistics(model=0, plot='sep', di=None, all_transformations=False)
             # print('theta', theta[0])
             # raise SystemExit()
 
+    deviance = 0
     for i in range(10):
         indices = labels==i
         rot_by_label.append(rotated_angles[indices])
         pred_by_label.append(predicted_angles[indices])
 
+        s = (sum(rot_by_label[i]) + sum(pred_by_label[i]))/len(rot_by_label[i])
+        deviance += sum([abs(r+p - s) for r,p in zip(rot_by_label[i],pred_by_label[i])])
+
         if all_transformations:
             shear_by_label.append(shears[indices])
             sx_by_label.append(scale_xs[indices])
             sy_by_label.append(scale_ys[indices])
+
+    print('Deviance', deviance / 10000)
 
     if plot == 'sep': # plot all digits separately
         for i in range(10):
@@ -207,8 +214,7 @@ def rotation_statistics(model=0, plot='sep', di=None, all_transformations=False)
 
     if all_transformations:
         return rot_by_label, pred_by_label, shear_by_label, sx_by_label, sy_by_label
-    else:
-        return rot_by_label, pred_by_label
+    return rot_by_label, pred_by_label
 
 
 def distance_from_matrix(thetas):
@@ -220,7 +226,20 @@ def distance_from_matrix(thetas):
     # both are negated because the digits are transformed in the
     # reverse of predicted transform, and because y is the wrong way
 
-def zooming_statistics(model=0, plot=True, di=None):
+def plot_distance(tran, pred):
+    heatmap, xedges, yedges = np.histogram2d(
+        tran[:,0], pred[:,0], bins=32, range=[[-16,16],[-16,16]])
+    extent = [-16, 16, -16, 16]
+    plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.figure()
+
+    heatmap, xedges, yedges = np.histogram2d(
+        tran[:,1], pred[:,1], bins=32, range=[[-16,16],[-16,16]])
+    extent = [-16, 16, -16, 16]
+    plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.show()
+
+def translation_statistics(model=0, plot=True, di=None, all_transformations=False):
     if di is not None:
         load_data(di)
 
@@ -229,9 +248,24 @@ def zooming_statistics(model=0, plot=True, di=None):
 
     _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
 
+    noise = data.MNIST_noise()
+
     translated_distance = np.zeros((0,2))
     predicted_distance = np.zeros((0,2))
-    noise = data.MNIST_noise()
+    tran_by_label = []
+    pred_by_label = []
+
+    labels = np.array([])
+
+    if all_transformations:
+        angles = np.array([])
+        shears = np.array([])
+        scale_xs = np.array([])
+        scale_ys = np.array([])
+        angle_by_label = []
+        shear_by_label = []
+        sx_by_label = []
+        sy_by_label = []
 
     with t.no_grad():
         model.eval()
@@ -249,6 +283,15 @@ def zooming_statistics(model=0, plot=True, di=None):
             predicted_distance = np.append(
                 predicted_distance, distance_from_matrix(theta), axis=0)
 
+            labels = np.append(labels, y)
+
+            if all_transformations:
+                angle, shear, sx, sy = angle_from_matrix(theta, all_transformations=True)
+                angles = np.append(angles, angle)
+                shears = np.append(shears, shear)
+                scale_xs = np.append(scale_xs, sx)
+                scale_ys = np.append(scale_ys, sy)
+
             # # DEBUGGING
             # plt.imshow(x[0,0])
             # plt.figure()
@@ -260,23 +303,32 @@ def zooming_statistics(model=0, plot=True, di=None):
             # print('predicted', distance_from_matrix(theta)[0], flush=True)
             # raise SystemExit()
 
+    deviance = 0
+    for i in range(10):
+        indices = labels==i
+        tran_by_label.append(translated_distance[indices,:])
+        pred_by_label.append(predicted_distance[indices,:])
+
+        s = (sum(tran_by_label[i]) + sum(pred_by_label[i]))/len(tran_by_label[i])
+        deviance += sum([np.linalg.norm(t+p - s) for t,p in zip(tran_by_label[i],pred_by_label[i])])
+
+        if all_transformations:
+            angle_by_label.append(angles[indices])
+            shear_by_label.append(shears[indices])
+            sx_by_label.append(scale_xs[indices])
+            sy_by_label.append(scale_ys[indices])
+
+    print('Deviance', deviance / 10000)
+
     if plot:
-        heatmap, xedges, yedges = np.histogram2d(  # TD: add range to this
-            translated_distance[:,0], predicted_distance[:,0], bins=(33,33))
-        extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-        plt.imshow(heatmap.T, extent=extent, origin='lower')
-        plt.figure()
+        plot_distance(translated_distance, predicted_distance)
 
-        heatmap, xedges, yedges = np.histogram2d(  # TD: add range to this
-            translated_distance[:,1], predicted_distance[:,1], bins=(33,33))
-        extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-        plt.imshow(heatmap.T, extent=extent, origin='lower')
-        plt.show()
-
-    return translated_distance, predicted_distance
+    if all_transformations:
+        return tran_by_label, pred_by_label, shear_by_label, sx_by_label, sy_by_label
+    return tran_by_label, pred_by_label
 
 #%%
-load_data("../experiments/mnist/statistics/rotate/STFCN3loop/")
-# load_data("../experiments/mnist/statistics/STCNN0/")
+# load_data("../experiments/mnist/statistics/rotate/STFCN3loop/")
+load_data("../experiments/mnist/statistics/translate/STFCN3/")
 
 #%%
