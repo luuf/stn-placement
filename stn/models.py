@@ -297,6 +297,7 @@ localization_dict = {
 model_dict = {
     'FCN': FCN,
     'CNN': CNN,
+    'ylva': ylva_mnist,
     'CNN2': CNN2,
     'SVHN-CNN': SVHN_CNN,
 }
