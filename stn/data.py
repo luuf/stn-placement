@@ -66,14 +66,14 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
             root='data/cache', train=True, download=True,
             transform=tv.transforms.Compose(transforms)
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
             root='data/cache', train=False, # download absent
             transform=tv.transforms.Compose(transforms)
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     return (train_loader, test_loader)
 
@@ -122,14 +122,14 @@ def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
             root='data/cache', train=True, download=True,
             transform=tv.transforms.Compose(train_transforms)
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.CIFAR10(
             root='data/cache', train=False, # download absent
             transform=tv.transforms.Compose(test_transforms)
         ),
-        batch_size=256, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     return (train_loader, test_loader)
 
@@ -206,7 +206,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
             images,
             normalize=normalize,
         ),
-        batch_size=128, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
@@ -214,7 +214,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
             images,
             normalize=normalize,
         ),
-        batch_size=128, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=4
     )
     return (train_loader, test_loader)
 
