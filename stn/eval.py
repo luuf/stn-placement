@@ -329,6 +329,7 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
 
 #%%
 # load_data("../experiments/mnist/statistics/rotate/STFCN3loop/")
-load_data("../experiments/mnist/statistics/translate/STFCN3/")
+# load_data("../experiments/mnist/statistics/translate/STFCN3/")
+load_data("../experiments/svhn/dropouttest/no2d/no2d400k/")
 
 #%%
