@@ -156,6 +156,22 @@ class CNN(Classifier): # original for mnist, works for cifar
             afn(),
         ])
 
+class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
+    default_parameter = [16, 16,  32, 32, 100]
+
+    def out(self,n):
+        return t.nn.Linear(n, 10)
+
+    def get_layers(self, in_shape, downsample=None):
+        return t.nn.ModuleList([
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3)),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), stride=2),
+            t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3)),
+            t.nn.Conv2d(self.param[2], self.param[3], kernel_size = (3,3), stride=2),
+            t.nn.Linear(self.param[3], self.param[4]),
+            t.nn.Dropout(0.15),
+        ])
+
 class CNN2(Classifier): # for cifar
     default_parameters = [32,32,64,64,128,128]
 
