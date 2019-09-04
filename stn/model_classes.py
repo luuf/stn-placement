@@ -115,7 +115,7 @@ class Classifier(Modular_Model):
             self.pre_stn = t.nn.ModuleList([t.nn.Sequential(*layers[s:e]) for s,e in split_at])
             self.final_layers = t.nn.Sequential(*layers[stn_placement[-1]:])
         else:
-            self.pre_stn = []
+            self.pre_stn = t.nn.ModuleList([])
             self.final_layers = t.nn.Sequential(*layers)
 
         if loop:

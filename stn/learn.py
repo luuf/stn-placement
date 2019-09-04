@@ -35,7 +35,7 @@ parser.add_argument(
     help="The number of neurons/filters to use in the localization layers"
 )
 parser.add_argument(
-    "--stn-placement", '-p', nargs="*", type=int, default=[0],
+    "--stn-placement", '-p', nargs="*", type=int, default=[],
     help="Number of layers to place stn after"
 )
 parser.add_argument(
