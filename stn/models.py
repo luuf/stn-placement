@@ -160,7 +160,11 @@ class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
     default_parameters = [16, 16,  32, 32, 100]
 
     def out(self,n):
-        return t.nn.Linear(n, 10)
+        return t.nn.Sequential(
+            t.nn.Linear(n, self.param[4]),
+            t.nn.Dropout(0.15),
+            t.nn.Linear(self.param[4], 10)
+        )
 
     def get_layers(self, in_shape, downsample=None):
         return t.nn.ModuleList([
@@ -168,8 +172,6 @@ class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
             t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), stride=2),
             t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3)),
             t.nn.Conv2d(self.param[2], self.param[3], kernel_size = (3,3), stride=2),
-            t.nn.Linear(self.param[3], self.param[4]),
-            t.nn.Dropout(0.15),
         ])
 
 class CNN2(Classifier): # for cifar
