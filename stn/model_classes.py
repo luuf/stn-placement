@@ -116,7 +116,7 @@ class Classifier(Modular_Model):
             self.final_layers = t.nn.Sequential(*layers[stn_placement[-1]:])
         else:
             self.pre_stn = []
-            self.final_layers = layers
+            self.final_layers = t.nn.Sequential(*layers)
 
         if loop:
             self.loop_models = t.nn.ModuleList(
