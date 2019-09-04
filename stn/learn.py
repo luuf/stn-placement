@@ -71,6 +71,9 @@ parser.add_argument(
 parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
 )
+parser.add_argument(
+    "--batch-size", '-b', type=int, default=256,
+)
 
 epoch_parser = parser.add_mutually_exclusive_group(required=True)
 epoch_parser.add_argument(
@@ -120,11 +123,17 @@ print("Parsed: ", args)
 #%% Read arguments
 if args.dataset in data.data_dict:
     print('Using dataset:', args.dataset, '; rotated' if args.rotate else '')
-    train_loader, test_loader = data.data_dict[args.dataset](args.rotate)
+    train_loader, test_loader = data.data_dict[args.dataset](
+        rotate = args.rotate,
+        batch_size = args.batch_size,
+    )
 else:
     print('Using precomputed dataset',args.dataset)
     assert args.rotate is False
-    train_loader, test_loader = data.get_precomputed(args.dataset)
+    train_loader, test_loader = data.get_precomputed(
+        path = args.dataset,
+        batch_size = args.batch_size,
+    )
 input_shape = train_loader.dataset[0][0].shape
 
 if args.iterations:

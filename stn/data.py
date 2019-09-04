@@ -35,7 +35,7 @@ class MNIST_noise:
             img += self.transform(self.data[i][0])
         return t.clamp(img, max=1)
 
-def mnist(rotate=True,normalize=True,translate=False):
+def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
     """Gets the mnist dataset from torchvision, and manipulates it.
     Args:
         rotate (bool): Whether to rotate the images a random amount
@@ -77,14 +77,14 @@ def mnist(rotate=True,normalize=True,translate=False):
     )
     return (train_loader, test_loader)
 
-def translated_mnist(rotate=False,normalize=False):
+def translated_mnist(rotate=False,normalize=False, batch_size=256):
     "Helper function to call mnist with certain variables"
     assert rotate is False
     assert normalize is False
     return mnist(False,False,True)
 
 
-def cifar10(rotate=False,normalize=False,augment=False):
+def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
     """Gets the cifar10 dataset from torchvision, and manipulates it.
     Args:
         rotate (bool): Whether to rotate the images a random amount
@@ -186,7 +186,7 @@ class CustomDataset(t.utils.data.Dataset):
 
         return (image, label)
 
-def get_precomputed(path, normalize=True):
+def get_precomputed(path, normalize=True, batch_size=128):
     """Creates a custom dataset from images saved to file and csv
     files describing the images. The images must be saved in a folder
     named `images` in the same folder as the csv files.
