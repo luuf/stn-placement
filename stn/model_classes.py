@@ -5,6 +5,16 @@ from functools import reduce
 
 
 def get_output_shape(input_shape, module):
+    """Takes an input_shape and a module, and returns the shape that
+    the module would return given a tensor of shape input_shape.
+    Assumes that the module's output shape only depends on the shape of
+    the input.
+
+    Args:
+        input_shape: any iterable that describes the shape. Shouldn't
+            include any batch_size.
+        module: anything that inherits from torch.nn.module
+    """
     dummy = t.tensor(
         np.zeros([1]+list(input_shape),
         dtype='float32')
@@ -14,6 +24,7 @@ def get_output_shape(input_shape, module):
 
 
 class Downsample(t.nn.Module):
+    """Halves each side of the input by downsampling bilinearly"""
     def forward(self, input):
         return F.interpolate(
             input,
@@ -23,6 +34,14 @@ class Downsample(t.nn.Module):
 
 
 class Modular_Model(t.nn.Module):
+    """Superclass that handles some optional parameters of modules.
+    All subclasses are required to define default_parameters, which are
+    used if no parameters are passed.
+
+    Args:
+        parameters: a list of the number of filters or neurons for each
+            layer, or None.
+    """
     def __init__(self, parameters):
         super().__init__()
 
@@ -34,6 +53,18 @@ class Modular_Model(t.nn.Module):
 
 
 class Localization(Modular_Model):
+    """Superclass for affine localization networks. Subclasses should
+    implement a function get_layers that returns a list of all layers
+    that the localization network contains. The final layer, that gets
+    the 6 affine parameters, are defined here, and shouldn't be
+    included in sub_classes.
+
+    Args:
+        parameters (list or None): are passed to the Modular_Model
+            superclass.
+        input_shape: any iterable that describes the shape of the input
+            to the network. Shouldn't include any batch size.
+    """
     def __init__(self, parameters, input_shape):
         super().__init__(parameters)
 
@@ -50,6 +81,30 @@ class Localization(Modular_Model):
 
 
 class Classifier(Modular_Model):
+    """Superclass for classification networks. Subclasses should
+    implement a function get_layers that returns a list of all layers
+    that the classification network contains, and a function out that
+    takes the output from the final layer of get_layers and returns the
+    final classification vector.
+
+    Args:
+        parameters (list or None): are passed to the Modular_Model
+            superclass.
+        input_shape: any iterable that describes the shape of the input
+            to the network. Shouldn't include any batch size.
+        localization_class: A subclass of Localization if the network
+            uses an STN. Otherwise None or False.
+        localization_parameters (list or None): are passed to the
+            Modular_Model superclass of the localization network.
+        stn_placement (list): contains the indices of each layer from
+            get_layers that an STN should be placed before. Should be
+            empty if no STN is used.
+        loop (bool): True if an STN with looping is used, otherwise
+            False.
+        data_tag (string): Name of the dataset, used for some
+            transforms that should only happen for a few datasets.
+    """
+
     def __init__(self, parameters, input_shape, localization_class,
                  localization_parameters, stn_placement, loop, data_tag):
         super().__init__(parameters)
@@ -70,8 +125,8 @@ class Classifier(Modular_Model):
                 'base_theta',
                 t.tensor(np.identity(3, dtype=np.float32))
             )
-            # I need to define theta as a tensor before forward,
-            # so that it's automatically ported it to device with model
+            # I need to define theta as a tensor before forward, so that
+            # it's automatically ported to device together with model
         else:
             self.loop_models = None
 
@@ -126,7 +181,8 @@ class Classifier(Modular_Model):
                 input_image = x
                 theta = self.base_theta
                 for l,m in zip(self.localization,self.loop_models):
-                    mat = F.pad(l(m(x)), (0,3)).view((-1,3,3))
+                    localization_output = l(m(x))
+                    mat = F.pad(localization_output, (0,3)).view((-1,3,3))
                     mat[:,2,2] = 1
                     theta = t.matmul(theta,mat)
                     # note that the new transformation is multiplied
@@ -135,6 +191,8 @@ class Classifier(Modular_Model):
                     # to the numbers, this yields the same parameters
                     # that would result from each transformation being
                     # applied after the previous, with the stn.
+                    # Empirically, there's no noticeably difference
+                    # between multiplying from the right and left.
                     x = self.stn(theta[:,0:2,:], input_image)
                 x = m(x)
             else:
