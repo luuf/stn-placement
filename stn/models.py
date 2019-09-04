@@ -157,7 +157,7 @@ class CNN(Classifier): # original for mnist, works for cifar
         ])
 
 class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
-    default_parameter = [16, 16,  32, 32, 100]
+    default_parameters = [16, 16,  32, 32, 100]
 
     def out(self,n):
         return t.nn.Linear(n, 10)
