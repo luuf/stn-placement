@@ -9,6 +9,7 @@ import data
 import models
 from datetime import datetime
 from functools import reduce
+from ylvas_code.lrdecay_functions import StepLRBase
 
 print('Launched at', datetime.now())
 #%% Parse arguments
@@ -60,6 +61,12 @@ parser.add_argument(
 parser.add_argument(
     "--loc-lr-multiplier", type=float, default=1,
     help="How much less the localization lr is than the base lr"
+)
+parser.add_argument(
+    "--lr-scheme", type=str, default="jaderberg",
+    help="""Which scheme to use for changing learning rate.
+            'jaderberg' multiplies by 0.1 after switch-after-iterations
+            'ylva' uses ylva's step function"""
 )
 parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
@@ -171,11 +178,28 @@ t.save(
 )
 
 #%% Setup
-learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
-switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
-                       else args.switch_after_iterations // len(train_loader))
-print('Will switch learning rate after',switch_after_epochs,'epochs',
-       '==', switch_after_epochs * len(train_loader), 'iterations')
+if args.lr_scheme == "jaderberg":
+    learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
+    switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
+                        else args.switch_after_iterations // len(train_loader))
+    print('Will switch learning rate after',switch_after_epochs,'epochs',
+        '==', switch_after_epochs * len(train_loader), 'iterations')
+
+def get_scheduler(optimizer):
+    if args.lr_scheme == "jaderberg":
+        return t.optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
+        )
+    if args.lr_scheme == "ylva":
+        return StepLRBase(
+            optimizer,
+            step_size = 6000,
+            floor_lr = 0.00005,
+            gamma = 1/np.sqrt(np.e),
+            last_epoch = -1
+        )
+    raise Exception("There is no lr scheme with name " + args.lr_scheme)
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
@@ -277,11 +301,7 @@ for run in range(args.runs):
         lr = args.lr,
         weight_decay = args.weight_decay,
     )
-    scheduler = t.optim.lr_scheduler.LambdaLR(
-        optimizer,
-        lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
-    )
-
+    scheduler = get_scheduler(optimizer)
     start_time = time.time()
 
     for epoch in range(epochs):
