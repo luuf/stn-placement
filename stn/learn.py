@@ -245,6 +245,9 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+
+        if args.lr_scheme == 'ylva':
+            scheduler.step()
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -320,7 +323,8 @@ for run in range(args.runs):
             print('Saved model')
         train(epoch)
         test(epoch)
-        scheduler.step()
+        if args.lr_scheme == 'jaderberg':
+            scheduler.step()
         if epoch % 10 == 0:
             print(
                 'Epoch', epoch, '\n'
