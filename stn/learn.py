@@ -56,7 +56,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--switch-after-iterations", type=int, default=np.inf,
-    help="How many iterations until learning rate is multiplied by 0.1"
+    help="How many iterations until learning rate is multiplied by 0.1 or sqrt(e)"
 )
 parser.add_argument(
     "--loc-lr-multiplier", type=float, default=1,
@@ -209,7 +209,7 @@ def get_scheduler(optimizer):
     if args.lr_scheme == "ylva":
         return StepLRBase(
             optimizer,
-            step_size = 6000,
+            step_size = args.switch_after_iterations,
             floor_lr = 0.00005,
             gamma = 1/np.sqrt(np.e),
             last_epoch = -1
