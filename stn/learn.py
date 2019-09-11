@@ -8,7 +8,7 @@ from os import makedirs, path
 import data
 import models
 from datetime import datetime
-from functools import reduce
+from functools import partial
 from ylvas_code.lrdecay_functions import StepLRBase
 
 print('Launched at', datetime.now())
@@ -67,6 +67,10 @@ parser.add_argument(
     help="""Which scheme to use for changing learning rate.
             'jaderberg' multiplies by 0.1 after switch-after-iterations
             'ylva' uses ylva's step function"""
+)
+parser.add_argument(
+    "--momentum", type=float, default="0",
+    help="How large the momentum is. (Use optimizer 'nesterov' for nesterov momentum)"
 )
 parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
@@ -154,8 +158,10 @@ localization_class = models.localization_dict.get(args.localization)
 assert not localization_class is None, 'Could not find localization'
 
 print('Using optimizer',args.optimizer)
+assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."
 optimizer_class = {
-    'sgd': t.optim.SGD,
+    'sgd': partial(t.optim.SGD, momentum=args.momentum),
+    'nesterov': partial(t.optim.SGD, momentum=args.momentum, nesterov=True),
     'adam': t.optim.Adam
 }.get(args.optimizer)
 assert not optimizer_class is None, 'Could not find optimizer'
