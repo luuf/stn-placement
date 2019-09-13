@@ -23,6 +23,20 @@ class Small_localization(Localization):
             afn()
         ])
 
+class ylva_localization(Localization):
+    default_parameters = [16, 16, 16] # add something here
+
+    def get_layers(self, in_shape):
+        conv = t.nn.ModuleList([
+            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3),
+                        stride= 1 if in_shape[1] <= 14 else 2),
+            afn(),
+            t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), stride=2),
+            afn(),
+            t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3))
+        ])
+        outs = get_output
+
 class FCN_localization(Localization):
     default_parameters = [32,32,32]
 
@@ -157,7 +171,7 @@ class CNN(Classifier): # original for mnist, works for cifar
         ])
 
 class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
-    default_parameters = [16, 16,  32, 32, 100]
+    default_parameters = [16, 16, 32, 32, 100]
 
     def out(self,n):
         return t.nn.Sequential(
@@ -311,6 +325,7 @@ localization_dict = {
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
     'CNNFCN':CNNFCN_localization,
+    'ylva':  ylva_localization,
     'small': Small_localization,
     'SVHN-l':SVHN_large,
     'SVHN-s':SVHN_small,
