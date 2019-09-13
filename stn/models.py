@@ -27,7 +27,7 @@ class ylva_localization(Localization):
     default_parameters = [16, 16, 16] # add something here
 
     def get_layers(self, in_shape):
-        conv = t.nn.ModuleList([
+        return t.nn.ModuleList([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3),
                         stride= 1 if in_shape[1] <= 14 else 2),
             afn(),
@@ -35,7 +35,6 @@ class ylva_localization(Localization):
             afn(),
             t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3))
         ])
-        outs = get_output
 
 class FCN_localization(Localization):
     default_parameters = [32,32,32]
