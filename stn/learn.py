@@ -155,7 +155,8 @@ assert not (model_class is None), 'Could not find model'
 
 print('Using localization:', args.localization)
 localization_class = models.localization_dict.get(args.localization)
-assert not localization_class is None, 'Could not find localization'
+assert localization_class is not None, 'Could not find localization'
+assert len(args.stn_placement) > 0 or not localization_class
 
 print('Using optimizer',args.optimizer)
 assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."

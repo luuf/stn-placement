@@ -33,7 +33,9 @@ class ylva_localization(Localization):
             afn(),
             t.nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), stride=2),
             afn(),
-            t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3))
+            t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3)),
+            afn(),
+            Flatten(),
         ])
 
 class FCN_localization(Localization):
