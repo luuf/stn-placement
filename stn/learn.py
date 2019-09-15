@@ -110,6 +110,16 @@ rotate_parser.add_argument(
 )
 parser.set_defaults(rotate=False)
 
+normalize_parser = parser.add_mutually_exclusive_group(required=False)
+normalize_parser.add_argument(
+    "--normalize", dest="normalize", action="store_true",
+    help="Normalize the data to mean 0 std 1."
+)
+normalize_parser.add_argument(
+    '--no-normalize', dest='normalize', action='store_false',
+)
+parser.set_defaults(normalize=False)
+
 # normalize_parser = parser.add_mutually_exclusive_group(required=False)
 # rotate_parser.add_argument(
 #     "--normalize", dest="normalize", action="store_true",
@@ -130,6 +140,7 @@ if args.dataset in data.data_dict:
     train_loader, test_loader = data.data_dict[args.dataset](
         rotate = args.rotate,
         batch_size = args.batch_size,
+        normalize = args.normalize,
     )
 else:
     print('Using precomputed dataset',args.dataset)

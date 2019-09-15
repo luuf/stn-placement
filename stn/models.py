@@ -24,7 +24,7 @@ class Small_localization(Localization):
         ])
 
 class ylva_localization(Localization):
-    default_parameters = [16, 16, 16] # add something here
+    default_parameters = [16, 16, 16]
 
     def get_layers(self, in_shape):
         return t.nn.ModuleList([
