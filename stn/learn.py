@@ -148,6 +148,7 @@ else:
     train_loader, test_loader = data.get_precomputed(
         path = args.dataset,
         batch_size = args.batch_size,
+        normalize = args.normalize,
     )
 input_shape = train_loader.dataset[0][0].shape
 
