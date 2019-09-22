@@ -16,18 +16,18 @@ class Flatten(t.nn.Module):
 class Small_localization(Localization):
     default_parameters = [32]
 
-    def get_layers(self, in_shape):
-        return t.nn.ModuleList([
+    def init_model(self, in_shape):
+        self.model = t.nn.Sequential(
             Flatten(),
             t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn()
-        ])
+        )
 
 class ylva_localization(Localization):
     default_parameters = [16, 16, 16]
 
-    def get_layers(self, in_shape):
-        return t.nn.ModuleList([
+    def init_model(self, in_shape):
+        self.model = t.nn.Sequential(
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3),
                         stride= 1 if in_shape[1] <= 14 else 2),
             afn(),
@@ -36,13 +36,13 @@ class ylva_localization(Localization):
             t.nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3)),
             afn(),
             Flatten(),
-        ])
+        )
 
 class FCN_localization(Localization):
     default_parameters = [32,32,32]
 
-    def get_layers(self, in_shape):
-        return t.nn.ModuleList([
+    def init_model(self, in_shape):
+        self.model = t.nn.Sequential(
             Flatten(),
             t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn(),
@@ -50,13 +50,17 @@ class FCN_localization(Localization):
             afn(),
             t.nn.Linear(self.param[1], self.param[2]),
             afn()
-        ])
+        )
 
-class CNNFCN_localization(Localization): # mnist loc that emulates a looped layer without sharing parameters
+class CNNFCN_localization(Localization):
+    '''MNIST localization consisting of jaderberg's initial convolution
+    followed by the three layers from the FCN localization
+    '''
+
     default_parameters = [64, 32, 32, 32]
 
-    def get_layers(self, in_shape):
-        return t.nn.ModuleList([
+    def init_model(self, in_shape):
+        self.model = t.nn.Sequential(
         t.nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
         t.nn.MaxPool2d(kernel_size = 2, stride = 2),
         afn(),
@@ -67,33 +71,52 @@ class CNNFCN_localization(Localization): # mnist loc that emulates a looped laye
         afn(),
         t.nn.Linear(self.param[2], self.param[3]),
         afn()
-    ])
+    )
 
 class CNN_localization(Localization):
     default_parameters = [20,20,20]
 
-    def get_layers(self, in_shape):
-        final_in = self.param[1] * ((in_shape[1]/2-4)/2 - 4)**2
-        assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
-        return t.nn.ModuleList([
-            Downsample(), # DOWNSAMPLING
-            t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5)),
-            t.nn.MaxPool2d(kernel_size=2, stride=2),
-            afn(),
-            t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5)),
-            afn(),
-            Flatten(),
-            t.nn.Linear(int(final_in), self.param[2]),
-            afn()
-        ])
+    def init_model(self, in_shape):
+        self.c1 = t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
+        self.mp = t.nn.MaxPool2d(kernel_size=2, stride=2)
+        self.c2 = t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
+        side = int((in_shape[-1]/2 - 4)/2 - 4)
+        self.l = t.nn.Linear(self.param[1] * side**2, self.param[2]),
+
+    def model(self, x):
+        x = F.interpolate(x, scale_factor=0.5, mode='bilinear')
+        x = self.mp(F.relu(self.c1(x)))
+        x = F.relu(self.c2(x))
+        x = F.relu(self.l(x.view(x.size(0), -1)))
+        return x
+
+class CNN_middleloc(Localization):
+    default_parameters = [20,20,20]
+
+    def init_model(self, in_shape):
+        self.c1 = t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
+        if in_shape[-1] > 24:
+            self.mp = t.nn.MaxPool2d(kernel_size=2, stride=2)
+        self.c2 = t.nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
+        side = 8 if in_shape[1] == 28 else 2
+        self.l = t.nn.Linear(self.param[1] * side**2, self.param[2])
+
+    def model(self, x):
+        x = self.c1(x)
+        if x.size(-1) > 20:
+            x = self.mp(x)
+        x = F.relu(x)
+        x = F.relu(self.c2(x))
+        x = F.relu(self.l(x.view(x.size(0), -1)))
+        return x
 
 class CNN_localization2(Localization): # for cifar
     default_parameters = [20,40,80]
 
-    def get_layers(self, in_shape):
+    def init_model(self, in_shape):
         final_in = self.param[1] * (((in_shape[1])/2)/2)**2
         assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
-        return t.nn.ModuleList([
+        self.model = t.nn.Sequential(
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2),
             afn(),
             t.nn.BatchNorm2d(self.param[0]),
@@ -105,15 +128,15 @@ class CNN_localization2(Localization): # for cifar
             Flatten(),
             t.nn.Linear(int(final_in), self.param[2]),
             afn()
-        ])
+        )
 
 class SVHN_large(Localization):
     default_parameters = [32,32,32,32]
 
-    def get_layers(self, in_shape):
+    def init_model(self, in_shape):
         final_side = in_shape[1]/2
         assert final_side == int(final_side)
-        return t.nn.ModuleList([
+        self.model = t.nn.Sequential([
             t.nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2),
             afn(),
             t.nn.MaxPool2d(kernel_size=2, stride=2),
@@ -129,14 +152,14 @@ class SVHN_large(Localization):
 class SVHN_small(Localization):
     default_parameters = [32,32]
 
-    def get_layers(self, in_shape):
-        return t.nn.ModuleList([
+    def init_model(self, in_shape):
+        self.model = t.nn.Sequential(
             Flatten(),
             t.nn.Linear(np.prod(in_shape), self.param[0]),
             afn(),
             t.nn.Linear(self.param[0], self.param[1]),
             afn(),
-        ])
+        )
 
 
 # classification architectures
@@ -323,6 +346,7 @@ class SVHN_CNN(Classifier):
 # dictionaries for mapping arguments to classes
 localization_dict = {
     'CNN':   CNN_localization,
+    'CNNm':  CNN_middleloc,
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
     'CNNFCN':CNNFCN_localization,

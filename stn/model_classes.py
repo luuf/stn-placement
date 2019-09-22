@@ -25,12 +25,8 @@ def get_output_shape(input_shape, module):
 
 class Downsample(t.nn.Module):
     """Halves each side of the input by downsampling bilinearly"""
-    def forward(self, input):
-        return F.interpolate(
-            input,
-            scale_factor=0.5,
-            mode='bilinear'
-        )
+    def forward(self, x):
+        return F.interpolate(x, scale_factor=0.5, mode='bilinear')
 
 
 class Modular_Model(t.nn.Module):
@@ -54,10 +50,10 @@ class Modular_Model(t.nn.Module):
 
 class Localization(Modular_Model):
     """Superclass for affine localization networks. Subclasses should
-    implement a function get_layers that returns a list of all layers
-    that the localization network contains. The final layer, that gets
+    implement a function init_model and a model self.model that
+    does most of the computations. The final layer, that gets
     the 6 affine parameters, are defined here, and shouldn't be
-    included in sub_classes.
+    included in subclasses.
 
     Args:
         parameters (list or None): are passed to the Modular_Model
@@ -68,7 +64,7 @@ class Localization(Modular_Model):
     def __init__(self, parameters, input_shape):
         super().__init__(parameters)
 
-        self.model = t.nn.Sequential(*self.get_layers(input_shape))
+        self.init_model(input_shape)
 
         out_shape = get_output_shape(input_shape, self.model)
         assert len(out_shape) == 1, "Localization output must be flat"
@@ -168,7 +164,8 @@ class Classifier(Modular_Model):
         theta = theta.view(-1, 2, 3)
         size = np.array(y.shape) // self.size_transform
         grid = F.affine_grid(theta, t.Size(size))
-        transformed = F.grid_sample(y, grid)
+        transformed = F.grid_sample(y, grid, padding_mode='border') # CHANGE THIS
+        print('STN using border padding')
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
         # plt.imshow(to_transform.detach()[0,0,:,:])
