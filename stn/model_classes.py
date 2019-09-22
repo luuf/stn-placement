@@ -156,6 +156,11 @@ class Classifier(Modular_Model):
                 *self.pre_stn, self.final_layers
             ))
 
+        if data_tag in ['translate', 'clutter', 'mnist']:
+            self.padding_mode = 'border'
+        else:
+            self.padding_mode = 'zeros'
+
         self.output = self.out(np.prod(final_shape))
 
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
@@ -164,7 +169,7 @@ class Classifier(Modular_Model):
         theta = theta.view(-1, 2, 3)
         size = np.array(y.shape) // self.size_transform
         grid = F.affine_grid(theta, t.Size(size))
-        transformed = F.grid_sample(y, grid, padding_mode='border') # CHANGE THIS
+        transformed = F.grid_sample(y, grid, padding_mode=self.padding_mode)
         print('STN using border padding')
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
