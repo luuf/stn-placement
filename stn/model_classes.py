@@ -170,7 +170,6 @@ class Classifier(Modular_Model):
         size = np.array(y.shape) // self.size_transform
         grid = F.affine_grid(theta, t.Size(size))
         transformed = F.grid_sample(y, grid, padding_mode=self.padding_mode)
-        print('STN using border padding')
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
         # plt.imshow(to_transform.detach()[0,0,:,:])
