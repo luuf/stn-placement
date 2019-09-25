@@ -110,6 +110,28 @@ class CNN_middleloc(Localization):
         x = F.relu(self.l(x.view(x.size(0), -1)))
         return x
 
+
+class CNN_translate(Localization):
+    default_parameters = [20,20,20]
+
+    def init_model(self, in_shape):
+        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
+        if in_shape[-1] > 30:
+            self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        side = 12 if in_shape[-1] == 60 else 7
+        self.l = nn.Linear(self.param[1] * side**2, self.param[2])
+
+    def model(self, x):
+        x = self.mp(F.relu(self.c1(x)))
+        x = F.relu(self.c2(x))
+        if x.size(-1) > 20: # the size should be 7 or 24
+            x = self.mp(x)
+        x = F.relu(self.l(x.view(x.size(0), -1)))
+        return x
+
+
 class CNN_localization2(Localization): # for cifar
     default_parameters = [20,40,80]
 
@@ -348,6 +370,7 @@ class SVHN_CNN(Classifier):
 localization_dict = {
     'CNN':   CNN_localization,
     'CNNm':  CNN_middleloc,
+    'CNNt':  CNN_translate,
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
     'CNNFCN':CNNFCN_localization,
