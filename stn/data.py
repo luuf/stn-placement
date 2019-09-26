@@ -54,6 +54,9 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
             tv.transforms.ToTensor(),
             MNIST_noise(),
         ]
+        if normalize:
+            transforms.append(tv.transforms.Normalize((0.0363,), (0.1870,)))
+            # approximate numbers derived from the transformation process
     else:
         transforms = [tv.transforms.ToTensor()]
         if rotate:
@@ -80,8 +83,7 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
 def translated_mnist(rotate=False,normalize=False, batch_size=256):
     "Helper function to call mnist with certain variables"
     assert rotate is False
-    assert normalize is False
-    return mnist(False,False,True)
+    return mnist(False, normalize, True, batch_size=batch_size)
 
 
 def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
