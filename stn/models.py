@@ -81,7 +81,7 @@ class CNN_localization(Localization):
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
         self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
         side = int((in_shape[-1]/2 - 4)/2 - 4)
-        self.l = nn.Linear(self.param[1] * side**2, self.param[2]),
+        self.l = nn.Linear(self.param[1] * side**2, self.param[2])
 
     def model(self, x):
         x = F.interpolate(x, scale_factor=0.5, mode='bilinear')
