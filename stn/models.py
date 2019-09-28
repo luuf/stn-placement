@@ -71,6 +71,26 @@ class FCN_localization_batchnorm(Localization):
         x = F.relu(self.l3(self.b3(x)))
         return self.b4(x)
 
+class FCN_localization_maxpool(Localization):
+    default_parameters = [32,32,32]
+
+    def init_model(self, in_shape):
+        self.mp = nn.MaxPool2d(kernel_size=2)
+        self.b1 = nn.BatchNorm1d(np.prod(in_shape)//4)
+        self.l1 = nn.Linear(np.prod(in_shape)//4, self.param[0])
+        self.b2 = nn.BatchNorm1d(self.param[0])
+        self.l2 = nn.Linear(self.param[0], self.param[1])
+        self.b3 = nn.BatchNorm1d(self.param[1])
+        self.l3 = nn.Linear(self.param[1], self.param[2])
+        self.b4 = nn.BatchNorm1d(self.param[2])
+
+    def model(self, x):
+        x = self.mp(x)
+        x = F.relu(self.l1(self.b1(x.view(x.size(0), -1))))
+        x = F.relu(self.l2(self.b2(x)))
+        x = F.relu(self.l3(self.b3(x)))
+        return self.b4(x)
+
 
 class CNNFCN_localization(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
@@ -417,6 +437,7 @@ localization_dict = {
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
     'FCNb':  FCN_localization_batchnorm,
+    'FCNmp': FCN_localization_maxpool,
     'CNNFCN':CNNFCN_localization,
     'ylva':  ylva_localization,
     'small': Small_localization,
