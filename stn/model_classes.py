@@ -16,7 +16,7 @@ def get_output_shape(input_shape, module):
         module: anything that inherits from torch.nn.module
     """
     dummy = t.tensor(
-        np.zeros([1]+list(input_shape),
+        np.zeros([2]+list(input_shape),  # batchnorm requires batchsize >1
         dtype='float32')
     )
     out = module(dummy)

@@ -42,33 +42,35 @@ class FCN_localization(Localization):
     default_parameters = [32,32,32]
 
     def init_model(self, in_shape):
-        self.model = nn.Sequential(
-            Flatten(),
-            nn.Linear(np.prod(in_shape), self.param[0]),
-            afn(),
-            nn.Linear(self.param[0], self.param[1]),
-            afn(),
-            nn.Linear(self.param[1], self.param[2]),
-            afn()
-        )
+        self.l1 = nn.Linear(np.prod(in_shape), self.param[0])
+        self.l2 = nn.Linear(self.param[0], self.param[1])
+        self.l3 = nn.Linear(self.param[1], self.param[2])
+
+    def model(self, x):
+        x = F.relu(self.l1(x.view(x.size(0), -1)))
+        x = F.relu(self.l2(x))
+        x = F.relu(self.l3(x))
+        return x
+
 
 class FCN_localization_batchnorm(Localization):
     default_parameters = [32,32,32]
 
     def init_model(self, in_shape):
-        self.model = nn.Sequential(
-            Flatten(),
-            nn.BatchNorm1d(np.prod(in_shape)),
-            nn.Linear(np.prod(in_shape), self.param[0]),
-            afn(),
-            nn.BatchNorm1d(self.param[0]),
-            nn.Linear(self.param[0], self.param[1]),
-            afn(),
-            nn.BatchNorm1d(self.param[1]),
-            nn.Linear(self.param[1], self.param[2]),
-            afn(),
-            nn.BatchNorm1d(self.param[2]),
-        )
+        self.b1 = nn.BatchNorm1d(np.prod(in_shape))
+        self.l1 = nn.Linear(np.prod(in_shape), self.param[0])
+        self.b2 = nn.BatchNorm1d(self.param[0])
+        self.l2 = nn.Linear(self.param[0], self.param[1])
+        self.b3 = nn.BatchNorm1d(self.param[1])
+        self.l3 = nn.Linear(self.param[1], self.param[2])
+        self.b4 = nn.BatchNorm1d(self.param[2])
+
+    def model(self, x):
+        x = F.relu(self.l1(self.b1(x.view(x.size(0), -1))))
+        x = F.relu(self.l2(self.b2(x)))
+        x = F.relu(self.l3(self.b3(x)))
+        return self.b4(x)
+
 
 class CNNFCN_localization(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
@@ -243,13 +245,18 @@ class CNN_batchnorm(Classifier): # original for mnist, works for cifar
 
     def get_layers(self, in_shape, downsample=None):
         return nn.ModuleList([
-            nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            afn(),
-            nn.BatchNorm2d(self.param[0]),
-            nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            afn(),
+            nn.Sequential(
+                nn.BatchNorm2d(1),
+                nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
+                nn.MaxPool2d(kernel_size = 2, stride = 2),
+                afn(),
+            ),
+            nn.Sequential(
+                nn.BatchNorm2d(self.param[0]),
+                nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
+                nn.MaxPool2d(kernel_size = 2, stride = 2),
+                afn(),
+            ),
             nn.BatchNorm2d(self.param[1]),
         ])
 
@@ -409,6 +416,7 @@ localization_dict = {
     'CNNt':  CNN_translate,
     'CNN2':  CNN_localization2,
     'FCN':   FCN_localization,
+    'FCNb':  FCN_localization_batchnorm,
     'CNNFCN':CNNFCN_localization,
     'ylva':  ylva_localization,
     'small': Small_localization,
