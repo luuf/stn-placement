@@ -75,7 +75,7 @@ class FCN_localization_maxpool(Localization):
     default_parameters = [32,32,32]
 
     def init_model(self, in_shape):
-        self.mp = nn.MaxPool2d(kernel_size=2)
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
         self.b1 = nn.BatchNorm1d(np.prod(in_shape)//4)
         self.l1 = nn.Linear(np.prod(in_shape)//4, self.param[0])
         self.b2 = nn.BatchNorm1d(self.param[0])
@@ -209,6 +209,27 @@ class SVHN_large(Localization):
         x = F.relu(self.c2(x))
         x = F.relu(self.l1(x.view(x.size(0), -1)))
         x = F.relu(self.l2(x))
+        return x
+
+
+class SVHN_dropout(Localization):
+    default_parameters = [32,32,32,32]
+
+    def init_model(self, in_shape):
+        self.droupout = nn.Dropout(0.5)
+        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2)
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2)
+        side = in_shape[1]/2
+        assert side == int(side)
+        self.l1 = nn.Linear(self.param[1] * int(side)**2, self.param[2])
+        self.l2 = nn.Linear(self.param[2], self.param[3])
+
+    def model(self, x):
+        x = self.dropout(self.mp(F.relu(self.c1(x))))
+        x = self.dropout(F.relu(self.c2(x)))
+        x = self.dropout(F.relu(self.l1(x.view(x.size(0), -1))))
+        x = self.dropout(F.relu(self.l2(x)))
         return x
 
 
@@ -442,6 +463,7 @@ localization_dict = {
     'ylva':  ylva_localization,
     'small': Small_localization,
     'SVHN-l':SVHN_large,
+    'SVHN-d':SVHN_dropout,
     'SVHN-s':SVHN_small,
     'false': False,
 }
