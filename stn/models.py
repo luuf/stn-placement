@@ -52,6 +52,24 @@ class FCN_localization(Localization):
             afn()
         )
 
+class FCN_localization_batchnorm(Localization):
+    default_parameters = [32,32,32]
+
+    def init_model(self, in_shape):
+        self.model = nn.Sequential(
+            Flatten(),
+            nn.BatchNorm1d(np.prod(in_shape)),
+            nn.Linear(np.prod(in_shape), self.param[0]),
+            afn(),
+            nn.BatchNorm1d(self.param[0]),
+            nn.Linear(self.param[0], self.param[1]),
+            afn(),
+            nn.BatchNorm1d(self.param[1]),
+            nn.Linear(self.param[1], self.param[2]),
+            afn(),
+            nn.BatchNorm1d(self.param[2]),
+        )
+
 class CNNFCN_localization(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
     followed by the three layers from the FCN localization
@@ -215,6 +233,24 @@ class CNN(Classifier): # original for mnist, works for cifar
             nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
             nn.MaxPool2d(kernel_size = 2, stride = 2),
             afn(),
+        ])
+
+class CNN_batchnorm(Classifier): # original for mnist, works for cifar
+    default_parameters = [64,64]
+
+    def out(self,n):
+        return nn.Linear(n, 10)
+
+    def get_layers(self, in_shape, downsample=None):
+        return nn.ModuleList([
+            nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
+            nn.MaxPool2d(kernel_size = 2, stride = 2),
+            afn(),
+            nn.BatchNorm2d(self.param[0]),
+            nn.Conv2d(self.param[0], self.param[1], kernel_size = (7,7)),
+            nn.MaxPool2d(kernel_size = 2, stride = 2),
+            afn(),
+            nn.BatchNorm2d(self.param[1]),
         ])
 
 class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
@@ -384,6 +420,7 @@ localization_dict = {
 model_dict = {
     'FCN': FCN,
     'CNN': CNN,
+    'CNNb': CNN_batchnorm,
     'ylva': ylva_mnist,
     'CNN2': CNN2,
     'SVHN-CNN': SVHN_CNN,
