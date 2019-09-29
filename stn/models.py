@@ -156,10 +156,11 @@ class CNN_middleloc_batchnorm(Localization):
     default_parameters = [24,48,48]
 
     def init_model(self, in_shape):
+        print(in_shape)
         self.b1 = nn.BatchNorm2d(in_shape[0])
         self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
-        flattened = self.param[0] * 3**2
+        flattened = self.param[0] * (3 if in_shape[-1] == 10 else 5)**2
         self.b2 = nn.BatchNorm1d(flattened)
         self.l1 = nn.Linear(flattened, self.param[1])
         self.b3 = nn.BatchNorm1d(self.param[1])
@@ -167,6 +168,8 @@ class CNN_middleloc_batchnorm(Localization):
         self.b4 = nn.BatchNorm1d(self.param[2])
 
     def model(self, x):
+        if x.size(-1) == 28:
+            x = F.interpolate(x, scale_factor=0.5, mode='bilinear')
         x = self.mp(F.relu(self.c1(self.b1(x))))
         x = F.relu(self.l1(self.b2(x.view(x.size(0), -1))))
         x = F.relu(self.l2(self.b3(x)))
