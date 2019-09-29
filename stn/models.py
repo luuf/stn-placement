@@ -151,6 +151,28 @@ class CNN_localization_batchnorm(Localization):
         x = F.relu(self.l(self.b3(x.view(x.size(0), -1))))
         return self.b4(x)
 
+
+class CNN_middleloc_batchnorm(Localization):
+    default_parameters = [24,48,48]
+
+    def init_model(self, in_shape):
+        self.b1 = nn.BatchNorm2d(in_shape[0])
+        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        flattened = self.param[0] * 3**2
+        self.b2 = nn.BatchNorm1d(flattened)
+        self.l1 = nn.Linear(flattened, self.param[1])
+        self.b3 = nn.BatchNorm1d(self.param[1])
+        self.l2 = nn.Linear(self.param[1], self.param[2])
+        self.b4 = nn.BatchNorm1d(self.param[2])
+
+    def model(self, x):
+        x = self.mp(F.relu(self.c1(self.b1(x))))
+        x = F.relu(self.l1(self.b2(x.view(x.size(0), -1))))
+        x = F.relu(self.l2(self.b3(x)))
+        return self.b4(x)
+
+
 class CNN_middleloc(Localization):
     default_parameters = [20,20,20]
 
@@ -475,6 +497,7 @@ class SVHN_CNN(Classifier):
 localization_dict = {
     'CNN':   CNN_localization,
     'CNNm':  CNN_middleloc,
+    'CNNmb': CNN_middleloc_batchnorm,
     'CNNt':  CNN_translate,
     'CNNb':  CNN_localization_batchnorm,
     'CNN2':  CNN_localization2,
