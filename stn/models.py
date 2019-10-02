@@ -100,18 +100,47 @@ class CNNFCN_localization(Localization):
     default_parameters = [64, 32, 32, 32]
 
     def init_model(self, in_shape):
-        self.model = nn.Sequential(
-        nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
-        nn.MaxPool2d(kernel_size = 2, stride = 2),
-        afn(),
-        Flatten(),
-        nn.Linear(self.param[0] * ((in_shape[1] - 8)//2)**2, self.param[1]),
-        afn(),
-        nn.Linear(self.param[1], self.param[2]),
-        afn(),
-        nn.Linear(self.param[2], self.param[3]),
-        afn()
-    )
+        self.c = nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9))
+        self.mp = nn.MaxPool2d(kernel_size = 2, stride = 2)
+        flattened = self.param[0] * ((in_shape[1] - 8)//2)**2
+        self.l1 = nn.Linear(flattened, self.param[1])
+        self.l2 = nn.Linear(self.param[1], self.param[2])
+        self.l3 = nn.Linear(self.param[2], self.param[3])
+
+    def model(self, x):
+        x = F.relu(self.mp(self.c(x)))
+        x = F.relu(self.l1(x.view(x.size(0), -1)))
+        x = F.relu(self.l2(x))
+        x = F.relu(self.l3(x))
+        return x
+
+
+class CNNFCN_batchnorm(Localization):
+    '''MNIST localization consisting of jaderberg's initial convolution
+    followed by the three layers from the FCN localization
+    '''
+
+    default_parameters = [64, 32, 32, 32]
+
+    def init_model(self, in_shape):
+        self.c = nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9))
+        self.mp = nn.MaxPool2d(kernel_size = 2, stride = 2)
+        flattened = self.param[0] * ((in_shape[1] - 8)//2)**2
+        self.b1 = nn.BatchNorm1d(flattened)
+        self.l1 = nn.Linear(flattened, self.param[1])
+        self.b2 = nn.BatchNorm1d(self.param[1])
+        self.l2 = nn.Linear(self.param[1], self.param[2])
+        self.b3 = nn.BatchNorm1d(self.param[2])
+        self.l3 = nn.Linear(self.param[2], self.param[3])
+        self.b4 = nn.BatchNorm1d(self.param[3])
+
+    def model(self, x):
+        x = F.relu(self.mp(self.c(x)))
+        x = F.relu(self.l1(self.b1(x.view(x.size(0), -1))))
+        x = F.relu(self.l2(self.b2(x)))
+        x = F.relu(self.l3(self.b3(x)))
+        return self.b4(x)
+
 
 class CNN_localization(Localization):
     default_parameters = [20,20,20]
@@ -156,7 +185,6 @@ class CNN_middleloc_batchnorm(Localization):
     default_parameters = [24,48,48]
 
     def init_model(self, in_shape):
-        print(in_shape)
         self.b1 = nn.BatchNorm2d(in_shape[0])
         self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -508,6 +536,7 @@ localization_dict = {
     'FCNb':  FCN_localization_batchnorm,
     'FCNmp': FCN_localization_maxpool,
     'CNNFCN':CNNFCN_localization,
+    'CNNFCNb':CNNFCN_batchnorm,
     'ylva':  ylva_localization,
     'small': Small_localization,
     'SVHN-l':SVHN_large,
