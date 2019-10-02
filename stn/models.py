@@ -117,15 +117,16 @@ class CNNFCN_localization(Localization):
 
 class CNNFCN_batchnorm(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
-    followed by the three layers from the FCN localization
+    followed by the three layers from the FCN localization, including the
+    extra maxpool used in FCNmp.
     '''
 
     default_parameters = [64, 32, 32, 32]
 
     def init_model(self, in_shape):
         self.c = nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9))
-        self.mp = nn.MaxPool2d(kernel_size = 2, stride = 2)
-        flattened = self.param[0] * ((in_shape[1] - 8)//2)**2
+        self.mp = nn.MaxPool2d(kernel_size = 4, stride = 4)
+        flattened = self.param[0] * ((in_shape[1] - 8)//4)**2
         self.b1 = nn.BatchNorm1d(flattened)
         self.l1 = nn.Linear(flattened, self.param[1])
         self.b2 = nn.BatchNorm1d(self.param[1])
