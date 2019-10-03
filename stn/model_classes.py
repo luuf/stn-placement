@@ -130,7 +130,8 @@ class Classifier(Modular_Model):
             if not batchnorm:
                 self.batchnorm = False
             elif loop:
-                self.batchnorm = [t.nn.BatchNorm2d(input_shape[0]) for _ in self.pre_stn]
+                self.batchnorm = t.nn.ModuleList(
+                    [t.nn.BatchNorm2d(input_shape[0]) for _ in self.pre_stn])
             else:
                 self.batchnorm = t.nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
