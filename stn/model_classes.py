@@ -61,7 +61,7 @@ class Localization(Modular_Model):
         input_shape: any iterable that describes the shape of the input
             to the network. Shouldn't include any batch size.
     """
-    def __init__(self, parameters, input_shape):
+    def __init__(self, parameters, input_shape, loc_lr_multiplier=1):
         super().__init__(parameters)
 
         self.init_model(input_shape)
@@ -71,9 +71,12 @@ class Localization(Modular_Model):
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
+        self.hook = lambda x: x*loc_lr_multiplier
 
     def forward(self, x):
-        return self.affine_param(self.model(x))
+        x = self.affine_param(self.model(x))
+        x.register_hook(self.hook)
+        return x
 
 
 class Classifier(Modular_Model):
@@ -89,7 +92,8 @@ class Classifier(Modular_Model):
         input_shape: any iterable that describes the shape of the input
             to the network. Shouldn't include any batch size.
         localization_class: A subclass of Localization if the network
-            uses an STN. Otherwise None or False.
+            uses an STN (otherwise False). The parameters and the
+            loc_lr_multiplier has already been specified with partial.
         localization_parameters (list or None): are passed to the
             Modular_Model superclass of the localization network.
         stn_placement (list): contains the indices of each layer from
@@ -101,7 +105,7 @@ class Classifier(Modular_Model):
             transforms that should only happen for a few datasets.
     """
 
-    def __init__(self, parameters, input_shape, localization_class, localization_parameters,
+    def __init__(self, parameters, input_shape, localization_class,
                  stn_placement, loop, data_tag, batchnorm=False):
         super().__init__(parameters)
 
@@ -139,7 +143,7 @@ class Classifier(Modular_Model):
             self.localization = t.nn.ModuleList()
             for model in self.pre_stn:
                 shape = get_output_shape(shape, model)
-                self.localization.append(localization_class(localization_parameters, shape))
+                self.localization.append(localization_class(input_shape=shape))
                 if batchnorm and not loop:
                     self.batchnorm.append(t.nn.BatchNorm2d(shape[0]))
         else:

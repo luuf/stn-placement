@@ -172,7 +172,11 @@ assert not (model_class is None), 'Could not find model'
 print('Using localization:', args.localization)
 localization_class = models.localization_dict.get(args.localization)
 assert localization_class is not None, 'Could not find localization'
-assert len(args.stn_placement) > 0 or not localization_class
+if localization_class:
+    assert len(args.stn_placement) > 0
+    localization_class = partial(localization_class,
+        loc_lr_multiplier = args.loc_lr_multiplier,
+        parameters = args.localization_parameters)
 
 print('Using optimizer',args.optimizer)
 assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."
@@ -318,21 +322,13 @@ for run in range(args.runs):
     # Create model
     model = model_class(
         args.model_parameters, input_shape, localization_class,
-        args.localization_parameters, args.stn_placement,
-        args.loop, args.dataset, args.batchnorm,
+        args.stn_placement, args.loop, args.dataset, args.batchnorm,
     )
     model = model.to(device)
 
     # Train model
-    params = [{'params': model.pre_stn.parameters()},
-              {'params': model.final_layers.parameters()},
-              {'params': model.output.parameters()}]
-    if localization_class:
-        params.append({'params': model.localization.parameters(),
-                       'lr': args.lr * args.loc_lr_multiplier})
-
     optimizer = optimizer_class(
-        params = params,
+        params = model.parameters(),
         lr = args.lr,
         weight_decay = args.weight_decay,
     )
