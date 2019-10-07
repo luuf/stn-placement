@@ -334,8 +334,9 @@ for run in range(args.runs):
     )
     model = model.to(device)
     model.apply(init_fn)
-    for loc in model.localization:
-        loc.initialize_affine_params()
+    if localization_class:
+        for loc in model.localization:
+            loc.initialize_affine_params()
 
     # Train model
     optimizer = optimizer_class(
