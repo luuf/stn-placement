@@ -75,7 +75,8 @@ class Localization(Modular_Model):
 
     def forward(self, x):
         x = self.affine_param(self.model(x))
-        x.register_hook(self.hook)
+        if x.requires_grad: # needed to avoid problems during testing
+            x.register_hook(self.hook)
         return x
 
 
