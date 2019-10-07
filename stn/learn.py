@@ -307,6 +307,14 @@ def test(epoch = None):
         history['test_acc'][epoch] = correct
     return test_loss, correct
 
+def init_fn(m):
+    if type(m) == t.nn.Linear:
+        t.nn.init.xavier_uniform_(m.weight)
+        m.bias.data.fill_(0)
+    elif type(m) == t.nn.Conv2d:
+        t.nn.init.xavier_uniform_(m.weight)
+        m.bias.data.fill_(0)
+
 #%% Run
 for run in range(args.runs):
 
@@ -325,6 +333,9 @@ for run in range(args.runs):
         args.stn_placement, args.loop, args.dataset, args.batchnorm,
     )
     model = model.to(device)
+    model.apply(init_fn)
+    for loc in model.localization:
+        loc.initialize_affine_params()
 
     # Train model
     optimizer = optimizer_class(

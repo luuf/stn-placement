@@ -69,9 +69,12 @@ class Localization(Modular_Model):
         out_shape = get_output_shape(input_shape, self.model)
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
+        self.initialize_affine_params()
+        self.hook = lambda x: x*loc_lr_multiplier
+
+    def initialize_affine_params(self):
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
-        self.hook = lambda x: x*loc_lr_multiplier
 
     def forward(self, x):
         x = self.affine_param(self.model(x))
