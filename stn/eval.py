@@ -8,13 +8,14 @@ import data
 from scipy.misc import imrotate
 import copy
 from os import path
+from functools import partial
 
 directory, d, train_loader, test_loader, untransformed_test = None, None, None, None, None
 
 #%% Functions
 def load_data(data_dir, normalize=True):
     global directory, d, train_loader, test_loader, untransformed_test
-    directory = data_dir
+    directory = '../experiments/'+data_dir
 
     d = t.load(directory+"/model_details")
     if d['dataset'] in data.data_dict:
@@ -32,15 +33,22 @@ def load_data(data_dir, normalize=True):
 
 
 def get_model(prefix):
+    batchnorm = d.get('batchnorm')
+    if batchnorm is None:
+        print('Assuming no batchnorm')
+        batchnorm = False
+
     model = models.model_dict[d['model']](
-        d['model_parameters'],
-        train_loader.dataset[0][0].shape,
-        models.localization_dict[d['localization']],
-        d['localization_parameters'],
-        d['stn_placement'],
-        d['loop'],
-        d['dataset'],
+        parameters = d['model_parameters'],
+        input_shape = train_loader.dataset[0][0].shape,
+        localization_class = models.localization_dict[d['localization']],
+        localization_parameters = d['localization_parameters'],
+        stn_placement = d['stn_placement'],
+        loop = d['loop'],
+        data_tag = d['dataset'],
+        batchnorm = batchnorm,
     )
+    
     model.load_state_dict(t.load(
         directory+'/'+str(prefix)+"final",
         map_location='cpu',
@@ -326,7 +334,7 @@ def plot_angles(rot, pred, line=True, save_path='', title=''):
         c = y - m*x
 
         print('m:', m, '  c:', c)
-        label = '{:.2}x {} {:.2}'.format(m, '-' if c<0 else '+', abs(c))
+        label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
         l = plt.plot(rot, m*rot + c, 'r', label=label)
         plt.legend()
 

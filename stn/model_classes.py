@@ -136,7 +136,7 @@ class Classifier(Modular_Model):
                 self.batchnorm = False
             elif loop:
                 self.batchnorm = t.nn.ModuleList(
-                    [t.nn.BatchNorm2d(input_shape[0]) for _ in self.pre_stn])
+                    [t.nn.BatchNorm2d(input_shape[0], affine=False) for _ in self.pre_stn])
             else:
                 self.batchnorm = t.nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
@@ -146,7 +146,7 @@ class Classifier(Modular_Model):
                 shape = get_output_shape(shape, model)
                 self.localization.append(localization_class(input_shape=shape))
                 if batchnorm and not loop:
-                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0]))
+                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
         else:
             self.localization = None
 
