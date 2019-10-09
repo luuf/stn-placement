@@ -39,11 +39,16 @@ def get_model(prefix):
         print('Assuming no batchnorm')
         batchnorm = False
 
+    localization_class = partial(
+        models.localization_dict[d['localization']],
+        parameters = d['localization_parameters'],
+        # loc lr doesn't matter
+    )
+
     model = models.model_dict[d['model']](
         parameters = d['model_parameters'],
         input_shape = train_loader.dataset[0][0].shape,
-        localization_class = models.localization_dict[d['localization']],
-        localization_parameters = d['localization_parameters'],
+        localization_class = localization_class,
         stn_placement = d['stn_placement'],
         loop = d['loop'],
         data_tag = d['dataset'],
