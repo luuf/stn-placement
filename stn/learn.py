@@ -67,10 +67,8 @@ parser.add_argument(
     help="How much less the localization lr is than the base lr"
 )
 parser.add_argument(
-    "--lr-scheme", type=str, default="jaderberg",
-    help="""Which scheme to use for changing learning rate.
-            'jaderberg' multiplies by 0.1 after switch-after-iterations
-            'ylva' uses ylva's step function"""
+    "--divide-lr-by", type=float, default=10,
+    help="Divide the lr by this number when changing lr"
 )
 parser.add_argument(
     "--momentum", type=float, default="0",
@@ -208,7 +206,7 @@ t.save(
         'learning_rate': args.lr,
         'switch_after_iterations': args.switch_after_iterations,
         'loc_lr_multiplier': args.loc_lr_multiplier,
-        'lr-scheme': args.lr_scheme,
+        'divide_lr_by': args.divide_lr_by,
         'momentum': args.momentum,
         'weight_decay': args.weight_decay,
         'batch_size': args.batch_size,
@@ -222,28 +220,17 @@ t.save(
 )
 
 #%% Setup
-if args.lr_scheme == "jaderberg":
-    learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
-    switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
-                        else args.switch_after_iterations // len(train_loader))
-    print('Will switch learning rate after',switch_after_epochs,'epochs',
-        '==', switch_after_epochs * len(train_loader), 'iterations')
+print('Will switch learning rate after',args.switch_after_iterations,'iterations',
+      '≈', args.switch_after_iterations / len(train_loader), 'epochs')
 
 def get_scheduler(optimizer):
-    if args.lr_scheme == "jaderberg":
-        return t.optim.lr_scheduler.LambdaLR(
-            optimizer,
-            lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
-        )
-    if args.lr_scheme == "ylva":
-        return StepLRBase(
-            optimizer,
-            step_size = args.switch_after_iterations,
-            floor_lr = 0.00005,
-            gamma = 1/np.sqrt(np.e),
-            last_epoch = -1
-        )
-    raise Exception("There is no lr scheme with name " + args.lr_scheme)
+    return StepLRBase(
+        optimizer,
+        step_size = args.switch_after_iterations,
+        floor_lr = 0, # 0.00005,
+        gamma = 1/args.divide_lr_by,
+        last_epoch = -1
+    )
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
@@ -281,8 +268,7 @@ def train(epoch):
                 epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
 
-        if args.lr_scheme == 'ylva':
-            scheduler.step()
+        scheduler.step()
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -350,8 +336,6 @@ for run in range(args.runs):
             print('Saved model')
         train(epoch)
         test(epoch)
-        if args.lr_scheme == 'jaderberg':
-            scheduler.step()
         if epoch % 10 == 0:
             print(
                 'Epoch', epoch, '\n'
