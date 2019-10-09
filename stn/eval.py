@@ -29,11 +29,12 @@ def load_data(data_dir, normalize=True):
             untransformed_test = None
     else:
         train_loader, test_loader = data.get_precomputed(
-            '../'+d['dataset'], normalize=normalize)
+            '../data/'+d['dataset'], normalize=normalize)
 
 
 def get_model(prefix):
     batchnorm = d.get('batchnorm')
+
     if batchnorm is None:
         print('Assuming no batchnorm')
         batchnorm = False
@@ -140,6 +141,31 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
             plt.plot(r, running_mean(history['test_acc'], window)[start:])
         plt.show()
 
+def test_multi_stn(model=0, n=4):
+    if type(model) == int:
+        model = get_model(model)
+    model.eval()
+    batch = next(iter(test_loader))[0][:n]
+    if not d['loop']:
+        transformed = [batch]
+        x = batch
+        for i,m in enumerate(model.pre_stn):
+            loc_input = m(x)
+            theta = model.localization[i](loc_input)
+            x = model.stn(theta, loc_input)
+            transformed.append(model.stn(theta, transformed[-1]))
+    k = len(transformed)
+    f, axs = plt.subplots(2,2,figsize=(10,10))
+    for j,images in enumerate(transformed):
+        for i,image in enumerate(images):
+            image = image.detach()
+            if image.shape[0] == 1:
+                image = image[0,:,:]
+            else:
+                image = np.moveaxis(image.numpy(),0,-1)
+            plt.subplot(n,k,i*k + 1 + j)
+            plt.imshow(image)
+    plt.show()
 
 def test_stn(model=0, n=4):
     if type(model) == int:
