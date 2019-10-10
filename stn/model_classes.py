@@ -144,7 +144,11 @@ class Classifier(Modular_Model):
             self.localization = t.nn.ModuleList()
             for model in self.pre_stn:
                 shape = get_output_shape(shape, model)
-                self.localization.append(localization_class(input_shape=shape))
+                if loop and model != self.pre_stn[-1]:
+                    self.localization.append(localization_class(
+                        input_shape=shape, loc_lr_multiplier=1))
+                else:
+                    self.localization.append(localization_class(input_shape=shape))
                 if batchnorm and not loop:
                     self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
         else:
@@ -206,7 +210,7 @@ class Classifier(Modular_Model):
                     # to the numbers, this yields the same parameters
                     # that would result from each transformation being
                     # applied after the previous, with the stn.
-                    # Empirically, there's no noticeably difference
+                    # Empirically, there's no noticeable difference
                     # between multiplying from the right and left.
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
