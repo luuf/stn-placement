@@ -157,21 +157,27 @@ class CustomDataset(t.utils.data.Dataset):
             mean and std in csv_file
     """ 
 
-    def __init__(self, csv_file, root_dir, transform=None, normalize=True):
+    def __init__(self, csv_file, root_dir, transforms, normalize=True):
 
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        transforms = [tv.transforms.ToTensor()]
+        self.is_rgb = len(self.frame.columns) == 6
+
         if normalize:
-            transforms.append(tv.transforms.Normalize(
-                (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
-                (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
-            ))
-        else:
-            raise Warning('Not using normalization may lead to values in [0,255]')
-        if transform:
-            transforms.insert(0, transform)
+            if self.is_rgb:
+                t1 = (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],)
+                t2 = (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
+                transforms.append(tv.transforms.Normalize(
+                    (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
+                    (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
+                ))
+            else:
+                transforms.append(tv.transforms.Normalize(
+                    (float(self.frame.iloc[0,0]),),
+                    (float(self.frame.iloc[0,1]),),
+                ))
+        # Not using normalization may lead to values in [0,255]
         self.transform = tv.transforms.Compose(transforms)
 
 
@@ -200,21 +206,26 @@ def get_precomputed(path, normalize=True, batch_size=128):
             concatenated with test.csv should be the path to a csv
             file containing information about the test data.
     """
+    dirs = path.split('/') # not safe across different os-es
+    if 'plankton' in dirs:
+        transforms = [tv.transforms.ToTensor(),
+            tv.transforms.Normalize((255,), (-255,), inplace=True)]
+            # not actually normalizing, just getting (1 - im/255)
+    else:
+        transforms = [tv.transforms.ToTensor()]
     directory, csv_file = os.path.split(path)
     images = os.path.join(directory, 'images')
     train_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
-            images,
-            normalize=normalize,
+            images, transforms, normalize,
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
-            images,
-            normalize=normalize,
+            images, transforms, normalize,
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
