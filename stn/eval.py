@@ -139,8 +139,8 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
         print('Final train_acc', history['train_acc'][-1])
         r = range(start, len(history['train_loss']))
         if loss:
-            plt.plot(r, history['train_loss'][start:])
-            plt.plot(r, history['test_loss'][start:])
+            plt.plot(r, running_mean(history['train_loss'][start:], window))
+            plt.plot(r, running_mean(history['test_loss'][start:], window))
         else:
             plt.plot(r, running_mean(history['train_acc'], window)[start:])
             plt.plot(r, running_mean(history['test_acc'], window)[start:])
@@ -151,6 +151,7 @@ def test_multi_stn(model=0, n=4):
         model = get_model(model)
     model.eval()
     batch = next(iter(test_loader))[0][:n]
+    assert not d.get('batchnorm')
     if not d['loop']:
         transformed = [batch]
         x = batch
@@ -159,11 +160,36 @@ def test_multi_stn(model=0, n=4):
             theta = model.localization[i](loc_input)
             x = model.stn(theta, loc_input)
             transformed.append(model.stn(theta, transformed[-1]))
+    else:
+        transformed = [batch]
+        # serial = [batch]
+        theta = t.eye(3)
+        x = batch
+        for i,m in enumerate(model.loop_models):
+            localization_output = model.localization[i](m(x))
+            # serial.append(model.stn(localization_output, serial[-1]))
+            mat = F.pad(localization_output, (0,3)).view((-1,3,3))
+            mat[:,2,2] = 1
+            theta = t.matmul(theta,mat)
+            # note that the new transformation is multiplied
+            # from the right. Since the parameters are the
+            # inverse of the parameters that would be applied
+            # to the numbers, this yields the same parameters
+            # that would result from each transformation being
+            # applied after the previous, with the stn.
+            # Empirically, there's no noticeable difference
+            # between multiplying from the right and left.
+            x = model.stn(theta[:,0:2,:], batch)
+            transformed.append(x)
+
+    minimum = t.min(batch.detach())
+    maximum = t.max(batch)
+
     k = len(transformed)
     f, axs = plt.subplots(2,2,figsize=(10,10))
     for j,images in enumerate(transformed):
         for i,image in enumerate(images):
-            image = image.detach()
+            image = (image.detach() - minimum) / (maximum - minimum)
             if image.shape[0] == 1:
                 image = image[0,:,:]
             else:
