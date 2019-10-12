@@ -150,7 +150,7 @@ class Classifier(Modular_Model):
                 else:
                     self.localization.append(localization_class(input_shape=shape))
                 if batchnorm and not loop:
-                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
+                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=True))
         else:
             self.localization = None
 
