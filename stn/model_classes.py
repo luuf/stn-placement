@@ -71,7 +71,16 @@ class Localization(Modular_Model):
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
-        self.hook = lambda x: x*loc_lr_multiplier
+        self.llr = loc_lr_multiplier
+
+    def hook(self, x):
+        print('in affine parameters')
+        print('shape of gradient', x.shape)
+        print('median:',t.median(x),'max:',t.max(x),'min:',t.min(x))
+        print('my llr', self.llr)
+        print()
+        return x * self.llr
+
 
     def forward(self, x):
         x = self.affine_param(self.model(x))
@@ -180,6 +189,13 @@ class Classifier(Modular_Model):
             self.padding_mode = 'zeros'
 
         self.output = self.out(np.prod(final_shape))
+
+
+        print('loop models length', len(self.loop_models))
+        print(self.loop_models)
+        print('localizations length', len(self.localization))
+        print(self.localization)
+
 
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     

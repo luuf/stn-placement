@@ -1,4 +1,5 @@
 #%%
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -311,14 +312,27 @@ class SVHN_dropout(Localization):
 class SVHN_small(Localization):
     default_parameters = [32,32]
 
-    def init_model(self, in_shape):
-        self.model = nn.Sequential(
+    # temporary change!
+    def init_model(self, in_shape): 
+        self.m = nn.Sequential(
             Flatten(),
             nn.Linear(np.prod(in_shape), self.param[0]),
             afn(),
             nn.Linear(self.param[0], self.param[1]),
             afn(),
         )
+
+    def small_hook(self,x):
+        print('in localization')
+        print('shape', x.shape)
+        print('median',torch.median(x),'max',torch.max(x),'min',torch.min(x))
+        print()
+
+    def model(self, x):
+        x = self.m(x)
+        x.register_hook(self.small_hook)
+        return x
+
 
 
 # classification architectures
@@ -452,6 +466,18 @@ class CNN2(Classifier): # for cifar
         ])
 
 
+class Hook_register(nn.Module):
+    def hook(self, x):
+        print('in classifier')
+        print('shape of gradient', x.shape)
+        print('median:',torch.median(x),'max:',torch.max(x),'min:',torch.min(x))
+        print()
+    
+    def forward(self, x):
+        if x.requires_grad:
+            x.register_hook(self.hook)
+        return x
+
 class SVHN_CNN(Classifier):
     default_parameters = [48,64,128,160,192,192,192,192,3072,3072,3072]
 
@@ -469,9 +495,11 @@ class SVHN_CNN(Classifier):
         assert final_side == int(final_side), 'Input shape not compatible with localization CNN'
         return nn.ModuleList([
             nn.Sequential(
+                Hook_register(),
                 nn.Conv2d(in_shape[0], self.param[0], kernel_size = (5,5), padding=2),
                 afn(),
                 nn.MaxPool2d(kernel_size = 2, stride = 2),
+                Hook_register(),
                 # no dropout in first layer
             ),
             nn.Sequential(
