@@ -144,11 +144,7 @@ class Classifier(Modular_Model):
             self.localization = t.nn.ModuleList()
             for model in self.pre_stn:
                 shape = get_output_shape(shape, model)
-                if loop and model != self.pre_stn[-1]:
-                    self.localization.append(localization_class(
-                        input_shape=shape, loc_lr_multiplier=1))
-                else:
-                    self.localization.append(localization_class(input_shape=shape))
+                self.localization.append(localization_class(input_shape=shape))
                 if batchnorm and not loop:
                     self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=True))
         else:
