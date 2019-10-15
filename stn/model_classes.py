@@ -70,14 +70,16 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
+        self.affine_param.bias.data.zero_()
         self.hook = lambda x: x*loc_lr_multiplier
+        self.register_buffer(
+            'identity', t.tensor([1,0,0,0,1,0],dtype=t.float))
 
     def forward(self, x):
         x = self.affine_param(self.model(x))
         if x.requires_grad: # needed to avoid problems during testing
             x.register_hook(self.hook)
-        return x
+        return x + self.identity
 
 
 class Classifier(Modular_Model):
