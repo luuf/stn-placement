@@ -208,7 +208,7 @@ class Classifier(Modular_Model):
                     # to the numbers, this yields the same parameters
                     # that would result from each transformation being
                     # applied after the previous, with the stn.
-                    # Empirically, there's no noticeable difference
+                    # Empirically, there's no noticeably difference
                     # between multiplying from the right and left.
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
