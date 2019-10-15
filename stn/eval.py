@@ -28,11 +28,18 @@ def load_data(data_dir, normalize=True):
         else:
             untransformed_test = None
     else:
-        train_loader, test_loader = data.get_precomputed(
-            '../data/'+d['dataset'], normalize=normalize)
+        try:
+            train_loader, test_loader = data.get_precomputed(
+                '../'+d['dataset'], normalize=normalize)
+        except FileNotFoundError:
+            train_loader, test_loader = data.get_precomputed(
+                '../data/'+d['dataset'], normalize=normalize)
 
 
-def get_model(prefix):
+def get_model(prefix, version='final', di=None, llr=False):
+    if di is not None:
+        load_data(di)
+
     batchnorm = d.get('batchnorm')
 
     if batchnorm is None:
@@ -42,8 +49,11 @@ def get_model(prefix):
     localization_class = partial(
         models.localization_dict[d['localization']],
         parameters = d['localization_parameters'],
-        # loc lr doesn't matter
     )
+
+    if llr is not False:
+        llr = d['loc_lr_multiplier'] if llr is True else llr
+        localization_class = partial(localization_class, loc_lr_multiplier=llr)
 
     model = models.model_dict[d['model']](
         parameters = d['model_parameters'],
@@ -56,7 +66,7 @@ def get_model(prefix):
     )
     
     model.load_state_dict(t.load(
-        directory+'/'+str(prefix)+"final",
+        directory+'/'+str(prefix)+version,
         map_location='cpu',
     ))
     # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
@@ -67,15 +77,12 @@ cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
 def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
     global test_loader
 
-    if di is not None:
-        load_data(di, normalize=normalize)
+    if type(model) == int:
+        model = get_model(model, di=di)
     if test_data is not None:
         test_loader = test_data
 
     is_svhn = path.dirname(d['dataset'])[-4:] == 'svhn'
-
-    if type(model) == int:
-        model = get_model(model)
 
     losses = []
     accs = []
@@ -146,9 +153,9 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
             plt.plot(r, running_mean(history['test_acc'], window)[start:])
         plt.show()
 
-def test_multi_stn(model=0, n=4):
+def test_multi_stn(model=0, n=4, di=None, version='final'):
     if type(model) == int:
-        model = get_model(model)
+        model = get_model(model, di=di, version=version)
     model.eval()
     batch = next(iter(test_loader))[0][:n]
     assert not d.get('batchnorm')
@@ -162,12 +169,12 @@ def test_multi_stn(model=0, n=4):
             transformed.append(model.stn(theta, transformed[-1]))
     else:
         transformed = [batch]
-        # serial = [batch]
+        serial = [batch]
         theta = t.eye(3)
         x = batch
         for i,m in enumerate(model.loop_models):
             localization_output = model.localization[i](m(x))
-            # serial.append(model.stn(localization_output, serial[-1]))
+            serial.append(model.stn(localization_output, serial[-1]))
             mat = F.pad(localization_output, (0,3)).view((-1,3,3))
             mat[:,2,2] = 1
             theta = t.matmul(theta,mat)
@@ -198,6 +205,18 @@ def test_multi_stn(model=0, n=4):
             plt.imshow(image)
     plt.show()
 
+    # f, axs = plt.subplots(2,2,figsize=(10,10))
+    # for j,images in enumerate(serial):
+    #     for i,image in enumerate(images):
+    #         image = (image.detach() - minimum) / (maximum - minimum)
+    #         if image.shape[0] == 1:
+    #             image = image[0,:,:]
+    #         else:
+    #             image = np.moveaxis(image.numpy(),0,-1)
+    #         plt.subplot(n,k,i*k + 1 + j)
+    #         plt.imshow(image)
+    # plt.show()
+
 def test_stn(model=0, n=4):
     if type(model) == int:
         model = get_model(model)
@@ -220,13 +239,79 @@ def test_stn(model=0, n=4):
         plt.show()
 
 
-def get_rotated_images(model=0, di=None, normalization=True,
-                       tall=False, save_path='', title=''):
+def hook(x):
+    print('Shape', x.shape)
+    print('Median abs', t.median(t.abs(x)))
+    print('Max', t.max(x), 'Min', t.min(x))
+    summed = t.sum(x, dim=0)
+    print('Median sum', t.median(t.abs(summed)))
+    print('Max', t.max(summed), 'Min', t.min(summed))
+    print('Vector length', t.norm(summed.view(-1)))
+
+def module_hook(module, grad_input, grad_output):
+    print('module', module)
+    print('grad input', [i.shape for i in grad_input])
+    print('grad output', [o.shape for o in grad_output])
+
+def get_gradients(model=0, di=None, version='final'):
+    assert type(model) == int
     if di is not None:
         load_data(di)
 
+    input_image,y = next(iter(train_loader))
+    assert d['loop']
+    for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
+        model.train()
+        x = input_image
+        theta = t.eye(3)
+        for i,m in enumerate(model.loop_models):
+            loc_input = m(x)
+            # if x.requires_grad:
+            #     loc_input.register_hook(lambda a: print('loc input', hook(a), '\n'))
+            # model.localization[i].register_backward_hook(module_hook)
+            loc_output = model.localization[i](loc_input)
+            # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
+            mat = F.pad(loc_output, (0,3)).view((-1,3,3))
+            mat[:,2,2] = 1
+            theta = t.matmul(theta,mat)
+            x = model.stn(theta[:,0:2,:], input_image)
+            # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
+        x = m(x)
+        # x.register_hook(lambda a: print('final m', hook(a),'\n'))
+        x = model.final_layers(x)
+        # x.register_hook(lambda a: print('final layers', hook(a),'\n'))
+        output = model.output(x.view(x.size(0),-1))
+        # [out.register_hook(lambda a: print('output', hook(a),'\n')) for out in output]
+
+        assert path.dirname(d['dataset'])[-4:] == 'svhn'
+        loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
+        loss.backward()
+
+        print('\nGradients')
+        for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
+            print('Pre stn', i)
+            for p in m.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+
+            print('Localization', i)
+            for p in l.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+
+        print('Final layers')
+        for p in model.final_layers.parameters():
+            print(p.grad.shape)
+            print(t.norm(p.grad.view(-1)))
+            print()
+
+
+def get_rotated_images(model=0, di=None, normalization=True,
+                       tall=False, save_path='', title=''):
     if type(model) == int:
-        model = get_model(model)
+        model = get_model(model, di=di)
 
     model.eval()
 
@@ -297,7 +382,7 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
                       normalization=True, save_path='', title=''):
     n = 1
 
-    load_data(di1)
+    model = get_model(model1, di=di1)
     batch = next(iter(untransformed_test))[0][:n]
 
     if len(angles) == 0:
@@ -313,13 +398,11 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     else:
         rot_x = rot_x / 255
 
-    model = get_model(model1)
     model.eval()
     theta = model.localization[0](model.pre_stn[0](rot_x))
     stn1 = model.stn(theta, rot_x)
   
-    load_data(di2)
-    model = get_model(model2)
+    model = get_model(model2, di=di2)
     model.eval()
     theta = model.localization[0](model.pre_stn[0](rot_x))
     stn2 = model.stn(theta, rot_x)
@@ -403,11 +486,8 @@ def plot_angles(rot, pred, line=True, save_path='', title=''):
 
 def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
                         normalize=True, save_path='', title=''):
-    if di is not None:
-        load_data(di)
-
     if type(model) == int:
-        model = get_model(model)
+        model = get_model(model, di=di)
 
     assert d['rotate']
     _, unrotated_test = data.data_dict[d['dataset']](
@@ -547,11 +627,8 @@ def plot_distance(tran, pred):
     plt.show()
 
 def translation_statistics(model=0, plot=True, di=None, all_transformations=False):
-    if di is not None:
-        load_data(di)
-
     if type(model) == int:
-        model = get_model(model)
+        model = get_model(model, di=di)
 
     _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
 
