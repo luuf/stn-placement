@@ -8,7 +8,8 @@ from os import makedirs, path
 import data
 import models
 from datetime import datetime
-from functools import reduce
+from functools import partial
+from ylvas_code.lrdecay_functions import StepLRBase
 
 print('Launched at', datetime.now())
 #%% Parse arguments
@@ -34,7 +35,7 @@ parser.add_argument(
     help="The number of neurons/filters to use in the localization layers"
 )
 parser.add_argument(
-    "--stn-placement", '-p', nargs="*", type=int, default=[0],
+    "--stn-placement", '-p', nargs="*", type=int, default=[],
     help="Number of layers to place stn after"
 )
 parser.add_argument(
@@ -55,14 +56,27 @@ parser.add_argument(
 )
 parser.add_argument(
     "--switch-after-iterations", type=int, default=np.inf,
-    help="How many iterations until learning rate is multiplied by 0.1"
+    help="How many iterations until learning rate is multiplied by 0.1 or sqrt(e)"
 )
 parser.add_argument(
     "--loc-lr-multiplier", type=float, default=1,
     help="How much less the localization lr is than the base lr"
 )
 parser.add_argument(
+    "--lr-scheme", type=str, default="jaderberg",
+    help="""Which scheme to use for changing learning rate.
+            'jaderberg' multiplies by 0.1 after switch-after-iterations
+            'ylva' uses ylva's step function"""
+)
+parser.add_argument(
+    "--momentum", type=float, default="0",
+    help="How large the momentum is. (Use optimizer 'nesterov' for nesterov momentum)"
+)
+parser.add_argument(
     "--weight-decay", "-w", type=float, default=0,
+)
+parser.add_argument(
+    "--batch-size", '-b', type=int, default=256,
 )
 
 epoch_parser = parser.add_mutually_exclusive_group(required=True)
@@ -96,6 +110,16 @@ rotate_parser.add_argument(
 )
 parser.set_defaults(rotate=False)
 
+normalize_parser = parser.add_mutually_exclusive_group(required=False)
+normalize_parser.add_argument(
+    "--normalize", dest="normalize", action="store_true",
+    help="Normalize the data to mean 0 std 1."
+)
+normalize_parser.add_argument(
+    '--no-normalize', dest='normalize', action='store_false',
+)
+parser.set_defaults(normalize=False)
+
 # normalize_parser = parser.add_mutually_exclusive_group(required=False)
 # rotate_parser.add_argument(
 #     "--normalize", dest="normalize", action="store_true",
@@ -113,11 +137,19 @@ print("Parsed: ", args)
 #%% Read arguments
 if args.dataset in data.data_dict:
     print('Using dataset:', args.dataset, '; rotated' if args.rotate else '')
-    train_loader, test_loader = data.data_dict[args.dataset](args.rotate)
+    train_loader, test_loader = data.data_dict[args.dataset](
+        rotate = args.rotate,
+        batch_size = args.batch_size,
+        normalize = args.normalize,
+    )
 else:
     print('Using precomputed dataset',args.dataset)
     assert args.rotate is False
-    train_loader, test_loader = data.get_precomputed(args.dataset)
+    train_loader, test_loader = data.get_precomputed(
+        path = args.dataset,
+        batch_size = args.batch_size,
+        normalize = args.normalize,
+    )
 input_shape = train_loader.dataset[0][0].shape
 
 if args.iterations:
@@ -135,11 +167,14 @@ assert not (model_class is None), 'Could not find model'
 
 print('Using localization:', args.localization)
 localization_class = models.localization_dict.get(args.localization)
-assert not localization_class is None, 'Could not find localization'
+assert localization_class is not None, 'Could not find localization'
+assert len(args.stn_placement) > 0 or not localization_class
 
 print('Using optimizer',args.optimizer)
+assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."
 optimizer_class = {
-    'sgd': t.optim.SGD,
+    'sgd': partial(t.optim.SGD, momentum=args.momentum),
+    'nesterov': partial(t.optim.SGD, momentum=args.momentum, nesterov=True),
     'adam': t.optim.Adam
 }.get(args.optimizer)
 assert not optimizer_class is None, 'Could not find optimizer'
@@ -171,11 +206,28 @@ t.save(
 )
 
 #%% Setup
-learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
-switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
-                       else args.switch_after_iterations // len(train_loader))
-print('Will switch learning rate after',switch_after_epochs,'epochs',
-       '==', switch_after_epochs * len(train_loader), 'iterations')
+if args.lr_scheme == "jaderberg":
+    learning_rate_multipliers = [1,0.1,0.01,0.001,0.0001,0.00001]
+    switch_after_epochs = (np.inf if args.switch_after_iterations == np.inf 
+                        else args.switch_after_iterations // len(train_loader))
+    print('Will switch learning rate after',switch_after_epochs,'epochs',
+        '==', switch_after_epochs * len(train_loader), 'iterations')
+
+def get_scheduler(optimizer):
+    if args.lr_scheme == "jaderberg":
+        return t.optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
+        )
+    if args.lr_scheme == "ylva":
+        return StepLRBase(
+            optimizer,
+            step_size = args.switch_after_iterations,
+            floor_lr = 0.00005,
+            gamma = 1/np.sqrt(np.e),
+            last_epoch = -1
+        )
+    raise Exception("There is no lr scheme with name " + args.lr_scheme)
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
 
@@ -212,6 +264,9 @@ def train(epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+
+        if args.lr_scheme == 'ylva':
+            scheduler.step()
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -277,11 +332,7 @@ for run in range(args.runs):
         lr = args.lr,
         weight_decay = args.weight_decay,
     )
-    scheduler = t.optim.lr_scheduler.LambdaLR(
-        optimizer,
-        lambda e: learning_rate_multipliers[int(e // switch_after_epochs)]
-    )
-
+    scheduler = get_scheduler(optimizer)
     start_time = time.time()
 
     for epoch in range(epochs):
@@ -291,7 +342,8 @@ for run in range(args.runs):
             print('Saved model')
         train(epoch)
         test(epoch)
-        scheduler.step()
+        if args.lr_scheme == 'jaderberg':
+            scheduler.step()
         if epoch % 10 == 0:
             print(
                 'Epoch', epoch, '\n'
