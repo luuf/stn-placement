@@ -259,35 +259,61 @@ def get_gradients(model=0, di=None, version='final'):
         load_data(di)
 
     input_image,y = next(iter(train_loader))
-    assert d['loop']
-    for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
-        model.train()
-        x = input_image
-        theta = t.eye(3)
-        for i,m in enumerate(model.loop_models):
-            loc_input = m(x)
-            # if x.requires_grad:
-            #     loc_input.register_hook(lambda a: print('loc input', hook(a), '\n'))
-            # model.localization[i].register_backward_hook(module_hook)
-            loc_output = model.localization[i](loc_input)
-            # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
-            mat = F.pad(loc_output, (0,3)).view((-1,3,3))
-            mat[:,2,2] = 1
-            theta = t.matmul(theta,mat)
-            x = model.stn(theta[:,0:2,:], input_image)
-            # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
-        x = m(x)
-        # x.register_hook(lambda a: print('final m', hook(a),'\n'))
-        x = model.final_layers(x)
-        # x.register_hook(lambda a: print('final layers', hook(a),'\n'))
-        output = model.output(x.view(x.size(0),-1))
-        # [out.register_hook(lambda a: print('output', hook(a),'\n')) for out in output]
 
-        assert path.dirname(d['dataset'])[-4:] == 'svhn'
+    if d['loop']:
+        for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
+            model.train()
+            x = input_image
+            theta = t.eye(3)
+            for i,m in enumerate(model.loop_models):
+                loc_input = m(x)
+                # if x.requires_grad:
+                #     loc_input.register_hook(lambda a: print('loc input', hook(a), '\n'))
+                # model.localization[i].register_backward_hook(module_hook)
+                loc_output = model.localization[i](loc_input)
+                # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
+                mat = F.pad(loc_output, (0,3)).view((-1,3,3))
+                mat[:,2,2] = 1
+                theta = t.matmul(theta,mat)
+                x = model.stn(theta[:,0:2,:], input_image)
+                # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
+            x = m(x)
+            # x.register_hook(lambda a: print('final m', hook(a),'\n'))
+            x = model.final_layers(x)
+            # x.register_hook(lambda a: print('final layers', hook(a),'\n'))
+            output = model.output(x.view(x.size(0),-1))
+            # [out.register_hook(lambda a: print('output', hook(a),'\n')) for out in output]
+
+            assert path.dirname(d['dataset'])[-4:] == 'svhn'
+            loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
+            loss.backward()
+
+            print('\nGradients')
+            for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
+                print('Pre stn', i)
+                for p in m.parameters():
+                    print(p.grad.shape)
+                    print(t.norm(p.grad.view(-1)))
+                    print()
+
+                print('Localization', i)
+                for p in l.parameters():
+                    print(p.grad.shape)
+                    print(t.norm(p.grad.view(-1)))
+                    print()
+
+            print('Final layers')
+            for p in model.final_layers.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+    else:
+        model = get_model(model, version)
+        model.train()
+        output = model(input_image)
         loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
         loss.backward()
 
-        print('\nGradients')
         for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
             print('Pre stn', i)
             for p in m.parameters():
