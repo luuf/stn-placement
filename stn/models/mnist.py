@@ -1,9 +1,7 @@
-#%%
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from functools import reduce
-from model_classes import Localization, Classifier, Downsample
+from .model_classes import Localization, Classifier
 
 afn = nn.ReLU
 
@@ -12,7 +10,8 @@ class Flatten(nn.Module):
         return input.view(input.size(0), -1)
 
 
-# localization architectures
+### LOCALIZATION ###
+
 class Small_localization(Localization):
     default_parameters = [32]
 
@@ -22,6 +21,7 @@ class Small_localization(Localization):
             nn.Linear(np.prod(in_shape), self.param[0]),
             afn()
         )
+
 
 class ylva_localization(Localization):
     default_parameters = [16, 16, 16]
@@ -38,6 +38,7 @@ class ylva_localization(Localization):
             Flatten(),
         )
 
+
 class FCN_localization(Localization):
     default_parameters = [32,32,32]
 
@@ -51,7 +52,6 @@ class FCN_localization(Localization):
         x = F.relu(self.l2(x))
         x = F.relu(self.l3(x))
         return x
-
 
 class FCN_localization_batchnorm(Localization):
     default_parameters = [32,32,32]
@@ -113,7 +113,6 @@ class CNNFCN_localization(Localization):
         x = F.relu(self.l2(x))
         x = F.relu(self.l3(x))
         return x
-
 
 class CNNFCN_batchnorm(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
@@ -181,7 +180,6 @@ class CNN_localization_batchnorm(Localization):
         x = self.b3(F.relu(self.l(x.view(x.size(0), -1))))
         return x
 
-
 class CNN_middleloc_batchnorm(Localization):
     default_parameters = [24,48,48]
 
@@ -204,7 +202,6 @@ class CNN_middleloc_batchnorm(Localization):
         x = self.b3(F.relu(self.l2(x)))
         return x
 
-
 class CNN_middleloc(Localization):
     default_parameters = [20,20,20]
 
@@ -224,7 +221,6 @@ class CNN_middleloc(Localization):
         x = F.relu(self.c2(x))
         x = F.relu(self.l(x.view(x.size(0), -1)))
         return x
-
 
 class CNN_translate(Localization):
     default_parameters = [20,20,20]
@@ -247,81 +243,8 @@ class CNN_translate(Localization):
         return x
 
 
-class CNN_localization2(Localization): # for cifar
-    default_parameters = [20,40,80]
+### CLASSIFICATION ###
 
-    def init_model(self, in_shape):
-        final_in = self.param[1] * (((in_shape[1])/2)/2)**2
-        assert final_in == int(final_in), 'Input shape not compatible with localization CNN'
-        self.model = nn.Sequential(
-            nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2),
-            afn(),
-            nn.BatchNorm2d(self.param[0]),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2),
-            afn(),
-            nn.BatchNorm2d(self.param[1]),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            Flatten(),
-            nn.Linear(int(final_in), self.param[2]),
-            afn()
-        )
-
-class SVHN_large(Localization):
-    default_parameters = [32,32,32,32]
-
-    def init_model(self, in_shape):
-        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2)
-        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2)
-        side = in_shape[1]/2
-        assert side == int(side)
-        self.l1 = nn.Linear(self.param[1] * int(side)**2, self.param[2])
-        self.l2 = nn.Linear(self.param[2], self.param[3])
-
-    def model(self, x):
-        x = self.mp(F.relu(self.c1(x)))
-        x = F.relu(self.c2(x))
-        x = F.relu(self.l1(x.view(x.size(0), -1)))
-        x = F.relu(self.l2(x))
-        return x
-
-
-class SVHN_dropout(Localization):
-    default_parameters = [32,32,32,32]
-
-    def init_model(self, in_shape):
-        self.droupout = nn.Dropout(0.5)
-        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5), padding=2)
-        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5), padding=2)
-        side = in_shape[1]/2
-        assert side == int(side)
-        self.l1 = nn.Linear(self.param[1] * int(side)**2, self.param[2])
-        self.l2 = nn.Linear(self.param[2], self.param[3])
-
-    def model(self, x):
-        x = self.dropout(self.mp(F.relu(self.c1(x))))
-        x = self.dropout(F.relu(self.c2(x)))
-        x = self.dropout(F.relu(self.l1(x.view(x.size(0), -1))))
-        x = self.dropout(F.relu(self.l2(x)))
-        return x
-
-
-class SVHN_small(Localization):
-    default_parameters = [32,32]
-
-    def init_model(self, in_shape):
-        self.model = nn.Sequential(
-            Flatten(),
-            nn.Linear(np.prod(in_shape), self.param[0]),
-            afn(),
-            nn.Linear(self.param[0], self.param[1]),
-            afn(),
-        )
-
-
-# classification architectures
 class FCN(Classifier):
     default_parameters = [256,200]
 
@@ -343,7 +266,7 @@ class CNN(Classifier): # original for mnist, works for cifar
     def out(self,n):
         return nn.Linear(n, 10)
 
-    def get_layers(self, in_shape, downsample=None):
+    def get_layers(self, in_shape):
         return nn.ModuleList([
             nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9)),
             nn.MaxPool2d(kernel_size = 2, stride = 2),
@@ -353,13 +276,13 @@ class CNN(Classifier): # original for mnist, works for cifar
             afn(),
         ])
 
-class CNN_batchnorm(Classifier): # original for mnist, works for cifar
+class CNN_batchnorm(Classifier):
     default_parameters = [64,64]
 
     def out(self,n):
         return nn.Linear(n, 10)
 
-    def get_layers(self, in_shape, downsample=None):
+    def get_layers(self, in_shape):
         # Changed to put batchnorm after each layer instead of before
         return nn.ModuleList([
             nn.Sequential(
@@ -387,7 +310,7 @@ class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
             nn.Linear(self.param[4], 10)
         )
 
-    def get_layers(self, in_shape, downsample=None):
+    def get_layers(self, in_shape):
         return nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3)),
@@ -414,143 +337,3 @@ class ylva_mnist(Classifier): # ylva uses adam, lr 0.003
             # nn.Dropout(0.15),
             # nn.Conv2d(self.param[4], 10, 1, stride=1),
         ])
-
-class CNN2(Classifier): # for cifar
-    default_parameters = [32,32,64,64,128,128]
-
-    def out(self,n):
-        return nn.Linear(n, 10)
-
-    def get_layers(self, in_shape, downsample=None):
-        return nn.ModuleList([
-            nn.Conv2d(in_shape[0], self.param[0], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[0]),
-            nn.Conv2d(self.param[0], self.param[1], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[1]),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            nn.Dropout2d(0.2),
-
-            nn.Conv2d(self.param[1], self.param[2], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[2]),
-            nn.Conv2d(self.param[2], self.param[3], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[3]),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            nn.Dropout2d(0.3),
-
-            nn.Conv2d(self.param[3], self.param[4], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[4]),
-            nn.Conv2d(self.param[4], self.param[5], kernel_size = (3,3), padding=1),
-            afn(),
-            nn.BatchNorm2d(self.param[5]),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            nn.Dropout2d(0.4),
-        ])
-
-
-class SVHN_CNN(Classifier):
-    default_parameters = [48,64,128,160,192,192,192,192,3072,3072,3072]
-
-    class out(nn.Module):
-        def __init__(self, neurons):
-            super().__init__()
-            self.out_layers = nn.ModuleList([
-                nn.Linear(neurons,11) for i in range(5)
-            ])
-        def forward(self, x):
-            return [layer(x) for layer in self.out_layers]
-
-    def get_layers(self, in_shape, downsample=None):
-        final_side = in_shape[1]/2/2/2/2
-        assert final_side == int(final_side), 'Input shape not compatible with localization CNN'
-        return nn.ModuleList([
-            nn.Sequential(
-                nn.Conv2d(in_shape[0], self.param[0], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.MaxPool2d(kernel_size = 2, stride = 2),
-                # no dropout in first layer
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[0], self.param[1], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[1], self.param[2], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.MaxPool2d(kernel_size = 2, stride = 2),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[2], self.param[3], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[3], self.param[4], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.MaxPool2d(kernel_size = 2, stride = 2),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[4], self.param[5], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[5], self.param[6], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.MaxPool2d(kernel_size = 2, stride = 2),
-                nn.Dropout(0.5),
-            ),
-            nn.Sequential(
-                nn.Conv2d(self.param[6], self.param[7], kernel_size = (5,5), padding=2),
-                afn(),
-                nn.Dropout(0.5),
-            ),
-            Flatten(),
-            nn.Linear(self.param[7] * int(final_side)**2, self.param[8]),
-            afn(),
-            nn.Dropout(0.5),
-            nn.Linear(self.param[8], self.param[9]),
-            afn(),
-            nn.Dropout(0.5),
-            nn.Linear(self.param[9], self.param[10]),
-            afn(),
-            nn.Dropout(0.5),
-        ])
-
-
-# dictionaries for mapping arguments to classes
-localization_dict = {
-    'CNN':   CNN_localization,
-    'CNNm':  CNN_middleloc,
-    'CNNmb': CNN_middleloc_batchnorm,
-    'CNNt':  CNN_translate,
-    'CNNb':  CNN_localization_batchnorm,
-    'CNN2':  CNN_localization2,
-    'FCN':   FCN_localization,
-    'FCNb':  FCN_localization_batchnorm,
-    'FCNmp': FCN_localization_maxpool,
-    'CNNFCN':CNNFCN_localization,
-    'CNNFCNb':CNNFCN_batchnorm,
-    'ylva':  ylva_localization,
-    'small': Small_localization,
-    'SVHN-l':SVHN_large,
-    'SVHN-d':SVHN_dropout,
-    'SVHN-s':SVHN_small,
-    'false': False,
-}
-
-model_dict = {
-    'FCN': FCN,
-    'CNN': CNN,
-    'CNNb': CNN_batchnorm,
-    'ylva': ylva_mnist,
-    'CNN2': CNN2,
-    'SVHN-CNN': SVHN_CNN,
-}
