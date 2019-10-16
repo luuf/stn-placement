@@ -163,15 +163,22 @@ class CustomDataset(t.utils.data.Dataset):
         self.root_dir = root_dir
 
         transforms = [tv.transforms.ToTensor()]
+
         if normalize:
-            transforms.append(tv.transforms.Normalize(
-                (float(self.frame.iloc[0,0]), self.frame.iloc[0,1], self.frame.iloc[0,2],),
-                (float(self.frame.iloc[0,3]), self.frame.iloc[0,4], self.frame.iloc[0,5],),
-            ))
-        else:
-            raise Warning('Not using normalization may lead to values in [0,255]')
+            if len(self.frame.columns) == 6:
+                transforms.append(tv.transforms.Normalize(
+                    (float(self.frame.iloc[0,0])/255, self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
+                    (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
+                ))
+            else:
+                transforms.append(tv.transforms.Normalize(
+                    (float(self.frame.iloc[0,0])/255,),
+                    (float(self.frame.iloc[0,1])/255,),
+                ))
+
         if transform:
-            transforms.insert(0, transform)
+            transforms.append(transform)
+        
         self.transform = tv.transforms.Compose(transforms)
 
 
@@ -181,8 +188,10 @@ class CustomDataset(t.utils.data.Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.root_dir, self.frame.iloc[idx+1, 0])
 
-        image = io.imread(img_name).astype(np.float32)
+        image = io.imread(img_name)
         label = np.array(self.frame.iloc[idx+1, 1:]).astype(int)
+        if len(label) == 1:
+            label = label[0]
 
         image = self.transform(image)
 
@@ -205,16 +214,14 @@ def get_precomputed(path, normalize=True, batch_size=128):
     train_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
-            images,
-            normalize=normalize,
+            root_dir=images, normalize=normalize,
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
-            images,
-            normalize=normalize,
+            root_dir=images, normalize=normalize,
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
