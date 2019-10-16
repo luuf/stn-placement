@@ -38,6 +38,10 @@ parser.add_argument(
     "--stn-placement", '-p', nargs="*", type=int, default=[],
     help="Number of layers to place stn after"
 )
+# parser.add_argument(
+#     "--batchnorm-placement", nargs="*", type=int, default=[],
+#     help="Indices of layers to place batch normalization before"
+# )
 parser.add_argument(
     "--runs", type=int, default=1,
     help="Number of time to run this experiment, default 1"
@@ -120,15 +124,15 @@ normalize_parser.add_argument(
 )
 parser.set_defaults(normalize=False)
 
-# normalize_parser = parser.add_mutually_exclusive_group(required=False)
-# rotate_parser.add_argument(
-#     "--normalize", dest="normalize", action="store_true",
-#     help="Normalize the data before feeding it to the network"
-# )
-# rotate_parser.add_argument(
-#     '--no-normalize', dest='normalize', action='store_false',
-# )
-# parser.set_defaults(normalize=False)
+batchnorm_parser = parser.add_mutually_exclusive_group(required=False)
+batchnorm_parser.add_argument(
+    "--batchnorm", dest="batchnorm", action="store_true",
+    help="Use batchnorm after all STNs."
+)
+batchnorm_parser.add_argument(
+    '--no-batchnorm', dest='batchnorm', action='store_false',
+)
+parser.set_defaults(batchnorm=False)
 
 args = parser.parse_args()
 
@@ -191,16 +195,24 @@ makedirs(directory, exist_ok=True)
 t.save(
     {
         'dataset': args.dataset,
-        'rotate': args.rotate,
         'model': args.model,
         'model_parameters': args.model_parameters,
         'localization': args.localization,
         'localization_parameters': args.localization_parameters,
         'stn_placement': args.stn_placement,
-        'loop': args.loop,
+        'optimizer': args.optimizer,
         'learning_rate': args.lr,
         'switch_after_iterations': args.switch_after_iterations,
+        'loc_lr_multiplier': args.loc_lr_multiplier,
+        'lr-scheme': args.lr_scheme,
+        'momentum': args.momentum,
+        'weight_decay': args.weight_decay,
+        'batch_size': args.batch_size,
         'epochs': epochs,
+        'loop': args.loop,
+        'rotate': args.rotate,
+        'normalize': args.normalize,
+        'batchnorm': args.batchnorm,
     },
     directory + 'model_details',
 )
@@ -315,7 +327,7 @@ for run in range(args.runs):
     model = model_class(
         args.model_parameters, input_shape, localization_class,
         args.localization_parameters, args.stn_placement,
-        args.loop, args.dataset,
+        args.loop, args.dataset, args.batchnorm,
     )
     model = model.to(device)
 

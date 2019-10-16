@@ -16,7 +16,7 @@ def get_output_shape(input_shape, module):
         module: anything that inherits from torch.nn.module
     """
     dummy = t.tensor(
-        np.zeros([1]+list(input_shape),
+        np.zeros([2]+list(input_shape),  # batchnorm requires batchsize >1
         dtype='float32')
     )
     out = module(dummy)
@@ -70,10 +70,12 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.copy_(t.tensor([1,0,0,0,1,0],dtype=t.float))
+        self.affine_param.bias.data.zero_()
+        self.register_buffer(
+            'identity', t.tensor([1,0,0,0,1,0],dtype=t.float))
 
     def forward(self, x):
-        return self.affine_param(self.model(x))
+        return self.affine_param(self.model(x)) + self.identity
 
 
 class Classifier(Modular_Model):
@@ -101,8 +103,8 @@ class Classifier(Modular_Model):
             transforms that should only happen for a few datasets.
     """
 
-    def __init__(self, parameters, input_shape, localization_class,
-                 localization_parameters, stn_placement, loop, data_tag):
+    def __init__(self, parameters, input_shape, localization_class, localization_parameters,
+                 stn_placement, loop, data_tag, batchnorm=False):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
@@ -127,19 +129,28 @@ class Classifier(Modular_Model):
             self.loop_models = None
 
         if localization_class:
+            if not batchnorm:
+                self.batchnorm = False
+            elif loop:
+                self.batchnorm = t.nn.ModuleList(
+                    [t.nn.BatchNorm2d(input_shape[0], affine=False) for _ in self.pre_stn])
+            else:
+                self.batchnorm = t.nn.ModuleList()
+                # batchnorms with appropriate shapes are added in next loop
             shape = input_shape
             self.localization = t.nn.ModuleList()
             for model in self.pre_stn:
                 shape = get_output_shape(shape, model)
                 self.localization.append(localization_class(localization_parameters, shape))
+                if batchnorm and not loop:
+                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
         else:
             self.localization = None
 
-        if data_tag in ['translate','clutter']:
+        if data_tag in ['translate','clutter'] and self.localization is not None:
             print('STN will downsample, since the data is', data_tag)
 
-            assert not stn_placement or len(stn_placement) == 1, \
-                'Have not implemented downsample for multiple stns'
+            assert len(stn_placement) == 1, 'Downsampling not implemented for multiple stns'
 
             self.size_transform = np.array([1,1,2,2])
             if loop:
@@ -151,7 +162,7 @@ class Classifier(Modular_Model):
                     *self.pre_stn, Downsample(), self.final_layers
                 ))
         else:
-            self.size_transform = np.array([1,1,1,1])
+            self.size_transform = np.array([1,1,1,1]) # only used if STN is used
             final_shape = get_output_shape(input_shape, t.nn.Sequential(
                 *self.pre_stn, self.final_layers
             ))
@@ -181,8 +192,8 @@ class Classifier(Modular_Model):
             if self.loop_models:
                 input_image = x
                 theta = self.base_theta
-                for l,m in zip(self.localization,self.loop_models):
-                    localization_output = l(m(x))
+                for i,m in enumerate(self.loop_models):
+                    localization_output = self.localization[i](m(x))
                     mat = F.pad(localization_output, (0,3)).view((-1,3,3))
                     mat[:,2,2] = 1
                     theta = t.matmul(theta,mat)
@@ -195,11 +206,15 @@ class Classifier(Modular_Model):
                     # Empirically, there's no noticeably difference
                     # between multiplying from the right and left.
                     x = self.stn(theta[:,0:2,:], input_image)
+                    if self.batchnorm:
+                        x = self.batchnorm[i](x)
                 x = m(x)
             else:
-                for l,m in zip(self.localization,self.pre_stn):
-                    localization_input = m(x)
-                    x = self.stn(l(localization_input), localization_input)
+                for i,m in enumerate(self.pre_stn):
+                    loc_input = m(x)
+                    x = self.stn(self.localization[i](loc_input), loc_input)
+                    if self.batchnorm:
+                        x = self.batchnorm[i](x)
 
         # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
         #     print('Layer', i, ': ', layer)
