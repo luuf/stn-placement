@@ -91,6 +91,21 @@ class FCN_localization_maxpool(Localization):
         x = F.relu(self.l3(self.b3(x)))
         return self.b4(x)
 
+class FCN_maxpool_nobatchnorm(Localization):
+    default_parameters = [32,32,32]
+
+    def init_model(self, in_shape):
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.l1 = nn.Linear(np.prod(in_shape)//4, self.param[0])
+        self.l2 = nn.Linear(self.param[0], self.param[1])
+        self.l3 = nn.Linear(self.param[1], self.param[2])
+
+    def model(self, x):
+        x = self.mp(x)
+        x = F.relu(self.l1(x.view(x.size(0), -1)))
+        x = F.relu(self.l2(x))
+        x = F.relu(self.l3(x))
+        return x
 
 class CNNFCN_localization(Localization):
     '''MNIST localization consisting of jaderberg's initial convolution
@@ -140,6 +155,29 @@ class CNNFCN_batchnorm(Localization):
         x = F.relu(self.l2(self.b2(x)))
         x = F.relu(self.l3(self.b3(x)))
         return self.b4(x)
+
+class CNNFCN_maxpool(Localization):
+    '''MNIST localization consisting of jaderberg's initial convolution
+    followed by the three layers from the FCN localization, including the
+    extra maxpool used in FCNmp.
+    '''
+
+    default_parameters = [64, 32, 32, 32]
+
+    def init_model(self, in_shape):
+        self.c = nn.Conv2d(in_shape[0], self.param[0], kernel_size = (9,9))
+        self.mp = nn.MaxPool2d(kernel_size = 4, stride = 4)
+        flattened = self.param[0] * ((in_shape[1] - 8)//4)**2
+        self.l1 = nn.Linear(flattened, self.param[1])
+        self.l2 = nn.Linear(self.param[1], self.param[2])
+        self.l3 = nn.Linear(self.param[2], self.param[3])
+
+    def model(self, x):
+        x = F.relu(self.mp(self.c(x)))
+        x = F.relu(self.l1(x.view(x.size(0), -1)))
+        x = F.relu(self.l2(x))
+        x = F.relu(self.l3(x))
+        return x
 
 
 class CNN_localization(Localization):
