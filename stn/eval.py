@@ -218,9 +218,9 @@ def test_multi_stn(model=0, n=4, di=None, version='final'):
     #         plt.imshow(image)
     # plt.show()
 
-def test_stn(model=0, n=4):
+def test_stn(model=0, n=4, di=None, version='final'):
     if type(model) == int:
-        model = get_model(model)
+        model = get_model(model, di=di, version=version)
     model.eval()
     batch = next(iter(test_loader))[0][:n]
     theta = model.localization[0](model.pre_stn[0](batch))
