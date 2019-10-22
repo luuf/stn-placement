@@ -213,10 +213,11 @@ def get_precomputed(path, normalize=True, batch_size=128):
     gray = True
     if gray and normalize:
         transform = tv.transforms.Compose([
-            partial(tv.transforms.functional.adjust_gamma, gamma=2.2),
+            # partial(tv.transforms.functional.adjust_gamma, gamma=2.2),
             tv.transforms.ToTensor(),
             partial(t.mean, dim=0, keepdim=True),
-            tv.transforms.Normalize((0.2080,), (0.1894,))
+            # tv.transforms.Normalize((0.2080,), (0.1894,))
+            tv.transforms.Normalize((.4398,), (0.1956,))
         ])
     else:
         transform = None
