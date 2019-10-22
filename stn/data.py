@@ -3,9 +3,9 @@ import numpy as np
 import torch as t
 import torchvision as tv
 import pandas as pd
-from skimage import io
 import os
 import PIL
+from functools import partial
 
 # def oldmnist():
 #     (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
@@ -162,24 +162,25 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        transforms = [tv.transforms.ToTensor()]
-
-        if normalize:
-            if len(self.frame.columns) == 6:
-                transforms.append(tv.transforms.Normalize(
-                    (float(self.frame.iloc[0,0])/255, self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
-                    (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
-                ))
-            else:
-                transforms.append(tv.transforms.Normalize(
-                    (float(self.frame.iloc[0,0])/255,),
-                    (float(self.frame.iloc[0,1])/255,),
-                ))
-
         if transform:
-            transforms.append(transform)
-        
-        self.transform = tv.transforms.Compose(transforms)
+            self.transform = transform
+
+        else:
+            transforms = [tv.transforms.ToTensor()]
+
+            if normalize:
+                if len(self.frame.columns) == 6:
+                    transforms.append(tv.transforms.Normalize(
+                        (float(self.frame.iloc[0,0])/255, self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
+                        (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
+                    ))
+                else:
+                    transforms.append(tv.transforms.Normalize(
+                        (float(self.frame.iloc[0,0])/255,),
+                        (float(self.frame.iloc[0,1])/255,),
+                    ))
+
+            self.transform = tv.transforms.Compose(transforms)
 
 
     def __len__(self):
@@ -188,7 +189,7 @@ class CustomDataset(t.utils.data.Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.root_dir, self.frame.iloc[idx+1, 0])
 
-        image = io.imread(img_name)
+        image = PIL.Image.open(img_name)
         label = np.array(self.frame.iloc[idx+1, 1:]).astype(int)
         if len(label) == 1:
             label = label[0]
@@ -209,19 +210,29 @@ def get_precomputed(path, normalize=True, batch_size=128):
             concatenated with test.csv should be the path to a csv
             file containing information about the test data.
     """
+    gray = True
+    if gray and normalize:
+        transform = tv.transforms.Compose([
+            partial(tv.transforms.functional.adjust_gamma, gamma=2.2),
+            tv.transforms.ToTensor(),
+            partial(t.mean, dim=0, keepdim=True),
+            tv.transforms.Normalize((0.2080,), (0.1894,))
+        ])
+    else:
+        transform = None
     directory, csv_file = os.path.split(path)
     images = os.path.join(directory, 'images')
     train_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
-            root_dir=images, normalize=normalize,
+            root_dir=images, normalize=normalize, transform=transform
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
-            root_dir=images, normalize=normalize,
+            root_dir=images, normalize=normalize, transform=transform
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
