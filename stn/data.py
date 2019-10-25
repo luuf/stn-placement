@@ -165,7 +165,7 @@ class CustomDataset(t.utils.data.Dataset):
         transforms = [tv.transforms.ToTensor()]
 
         if normalize:
-            if len(self.frame.columns) == 6:
+            if len(self.frame.columns) == 6 and self.frame.iloc[0,3] != 0:
                 transforms.append(tv.transforms.Normalize(
                     (float(self.frame.iloc[0,0])/255, self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
                     (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
