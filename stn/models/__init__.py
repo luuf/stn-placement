@@ -18,6 +18,7 @@ localization_dict = {
     'CNNFCN':   mnist.CNNFCN_localization,
     'CNNFCNb':  mnist.CNNFCN_batchnorm,
     'CNNFCNmp': mnist.CNNFCN_maxpool,
+    'CNNCNN':   mnist.CNNCNN,
     'ylva':     mnist.ylva_localization,
     'small':    mnist.Small_localization,
     'SVHN-l':   svhn.SVHN_large,
