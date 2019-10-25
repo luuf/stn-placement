@@ -69,14 +69,14 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
             root='data/cache', train=True, download=True,
             transform=tv.transforms.Compose(transforms)
         ),
-        batch_size=batch_size, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=12
     )
     test_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
             root='data/cache', train=False, # download absent
             transform=tv.transforms.Compose(transforms)
         ),
-        batch_size=batch_size, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers=12
     )
     return (train_loader, test_loader)
 
