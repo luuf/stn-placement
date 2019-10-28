@@ -2,13 +2,15 @@
 import torch as t
 
 def change_modeldetails(data_dir, normalize=None, batchnorm=None):
-    directory = '../experiments/'+data_dir
+    directory = '../../experiments/'+data_dir
 
     d = t.load(directory+"/model_details")
     print('d1', d)
     if normalize is not None:
+        assert d.get('normalize') is None
         d['normalize'] = normalize
     if batchnorm is not None:
+        assert d.get('batchnorm') is None
         d['batchnorm'] = batchnorm
 
     print('d2', d)
