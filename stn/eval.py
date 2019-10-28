@@ -18,15 +18,20 @@ def load_data(data_dir, normalize=True):
     directory = '../experiments/'+data_dir
 
     d = t.load(directory+"/model_details")
+    if 'normalize' in d:
+        normalize = d['normalize']
+    elif d['dataset'] == 'translate':
+        print('Assuming no normalizaion on translated data')
+        normalize = False
+
     if d['dataset'] in data.data_dict:
-        train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
+        train_loader, test_loader = data.data_dict[d['dataset']](
+            rotate = d['rotate'], normalize = d['normalize'])
         if d['rotate']:
             _, untransformed_test = data.data_dict[d['dataset']](
                 rotate=False, normalize=normalize)
         elif d['dataset'] == 'translate':
             _, untransformed_test = data.mnist(rotate=False, normalize=False)
-        else:
-            untransformed_test = None
     else:
         try:
             train_loader, test_loader = data.get_precomputed(
@@ -688,9 +693,14 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         for x, y in untransformed_test:
             distance = np.random.randint(-16, 17, (x.shape[0], 2))
             translated = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
-            for i,(im, d) in enumerate(zip(x, distance)):
-                translated[i, 0, 16-d[1] : 44-d[1], 16+d[0] : 44+d[0]] = im[0]
+            for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
+                translated[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
                 translated[i] = noise(translated[i])
+
+            if 'normalize' not in d:
+                print('Assuming no normalization.')
+            elif d['normalize']:
+                translated = (translated - 0.0363) / 0.1870
             
             theta = model.localization[0](model.pre_stn[0](translated))
 
@@ -798,11 +808,3 @@ def plot_results(folder, n_prefixes, *args):
             accs[-1] = accs[-1][n_prefixes // 2]
         plt.plot(accs)
     plt.show()
-
-            
-
-#%%
-load_data("../experiments/mnist/statistics/rotate/STFCN3loop")
-# load_data("../experiments/mnist/statistics/translate/STFCN3")
-# load_data("../experiments/svhn/dropouttest/no2d/no2d400k")
-# load_data("../experiments/mnist/ylva/adam03")
