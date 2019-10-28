@@ -754,6 +754,13 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         return tran_by_label, pred_by_label, angle_by_label, shear_by_label, sx_by_label, sy_by_label, det_by_label
     return tran_by_label, pred_by_label
 
+def average_n(res, n):
+    for run in res:
+        s = 0
+        for label in run[n]:
+            s += sum(label)
+        s /= len(untransformed_test.dataset)
+        print(s)
 
 def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True, save_path='', title=''):
     n = 1
