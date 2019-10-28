@@ -188,7 +188,7 @@ class CustomDataset(t.utils.data.Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.root_dir, self.frame.iloc[idx+1, 0])
 
-        image = io.imread(img_name)
+        image = PIL.Image.open(img_name)
         label = np.array(self.frame.iloc[idx+1, 1:]).astype(int)
         if len(label) == 1:
             label = label[0]
