@@ -608,11 +608,11 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
     if plot == 'all': # plot all data at once
         plot_angles(rotated_angles, predicted_angles, save_path=save_path, title=title)
         
-        if all_transformations:
-            assert not save_path, "Haven't implemented saving of more than one image"
-            plot_angles(rotated_angles, 100 * shears)
-            plot_angles(rotated_angles, 50 * scale_xs)
-            plot_angles(rotated_angles, 50 * scale_ys)
+        # if all_transformations:
+        #     assert not save_path, "Haven't implemented saving of more than one image"
+        #     plot_angles(rotated_angles, 100 * shears)
+        #     plot_angles(rotated_angles, 50 * scale_xs)
+        #     plot_angles(rotated_angles, 50 * scale_ys)
 
 
     if all_transformations:
@@ -732,6 +732,14 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         return tran_by_label, pred_by_label, angle_by_label, shear_by_label, sx_by_label, sy_by_label, det_by_label
     return tran_by_label, pred_by_label
 
+def average_n(res, n):
+    for run in res:
+        s = 0
+        for label in run[n]:
+            s += sum(label)
+        s /= len(untransformed_test.dataset)
+        print(s)
+
 
 def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True, save_path='', title=''):
     n = 1
@@ -786,11 +794,3 @@ def plot_results(folder, n_prefixes, *args):
             accs[-1] = accs[-1][n_prefixes // 2]
         plt.plot(accs)
     plt.show()
-
-            
-
-#%%
-load_data("../experiments/mnist/statistics/rotate/STFCN3loop")
-# load_data("../experiments/mnist/statistics/translate/STFCN3")
-# load_data("../experiments/svhn/dropouttest/no2d/no2d400k")
-# load_data("../experiments/mnist/ylva/adam03")
