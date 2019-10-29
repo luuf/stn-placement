@@ -26,7 +26,7 @@ def get_output_shape(input_shape, module):
 class Downsample(t.nn.Module):
     """Halves each side of the input by downsampling bilinearly"""
     def forward(self, x):
-        return F.interpolate(x, scale_factor=0.5, mode='bilinear')
+        return F.interpolate(x, scale_factor=2/3, mode='bilinear')
 
 
 class Modular_Model(t.nn.Module):
@@ -152,7 +152,7 @@ class Classifier(Modular_Model):
 
             assert len(stn_placement) == 1, 'Downsampling not implemented for multiple stns'
 
-            self.size_transform = np.array([1,1,2,2])
+            self.size_transform = np.array([1,1,1.5,1.5])
             if loop:
                 final_shape = get_output_shape(input_shape, t.nn.Sequential(
                     Downsample(), *self.pre_stn, self.final_layers
@@ -179,7 +179,7 @@ class Classifier(Modular_Model):
     def stn(self, theta, y):
         theta = theta.view(-1, 2, 3)
         size = np.array(y.shape) // self.size_transform
-        grid = F.affine_grid(theta, t.Size(size))
+        grid = F.affine_grid(theta, t.Size(size.astype(int)))
         transformed = F.grid_sample(y, grid, padding_mode=self.padding_mode)
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
