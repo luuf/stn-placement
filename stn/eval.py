@@ -26,7 +26,7 @@ def load_data(data_dir, normalize=True):
 
     if d['dataset'] in data.data_dict:
         train_loader, test_loader = data.data_dict[d['dataset']](
-            rotate = d['rotate'], normalize = d['normalize'])
+            rotate = d['rotate'], normalize = normalize)
         if d['rotate']:
             _, untransformed_test = data.data_dict[d['dataset']](
                 rotate=False, normalize=normalize)
