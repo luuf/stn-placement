@@ -488,7 +488,7 @@ def plot_angles(rot, pred, line=True, save_path='', title=''):
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
     extent = [-110, 110, -110, 110]
-    plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='viridis')
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
 
@@ -519,7 +519,7 @@ def plot_angles(rot, pred, line=True, save_path='', title=''):
     plt.show()
 
 def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
-                        normalize=True, save_path='', title=''):
+                        normalize=True, epochs=1, save_path='', title=''):
     if type(model) == int:
         model = get_model(model, di=di)
 
@@ -547,46 +547,47 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
     with t.no_grad():
         model.eval()
 
-        for x, y in unrotated_test:
-            angles = np.random.uniform(-90, 90, x.shape[0])
-            rot_x = t.tensor([
-                imrotate(im[0], angle) for im, angle in zip(x, angles)
-            ], dtype=t.float).reshape(-1, 1, 28, 28)
-            # for unfathomable reasons, imrotate converts the image to 0-255
-            if normalize:
-                rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255)
-            else:
-                rot_x = rot_x / 255
+        for epoch in range(epochs):
+            for x, y in unrotated_test:
+                angles = np.random.uniform(-90, 90, x.shape[0])
+                rot_x = t.tensor([
+                    imrotate(im[0], angle) for im, angle in zip(x, angles)
+                ], dtype=t.float).reshape(-1, 1, 28, 28)
+                # for unfathomable reasons, imrotate converts the image to 0-255
+                if normalize:
+                    rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255)
+                else:
+                    rot_x = rot_x / 255
 
-            theta = model.localization[0](model.pre_stn[0](rot_x))
+                theta = model.localization[0](model.pre_stn[0](rot_x))
 
-            rotated_angles = np.append(rotated_angles, angles)
-            labels = np.append(labels, y)
+                rotated_angles = np.append(rotated_angles, angles)
+                labels = np.append(labels, y)
 
-            if all_transformations:
-                angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
-                predicted_angles = np.append(predicted_angles, angle)
-                shears = np.append(shears, shear)
-                scale_xs = np.append(scale_xs, sx)
-                scale_ys = np.append(scale_ys, sy)
-                dets = np.append(dets, det)
-            else:
-                predicted_angles = np.append(predicted_angles, angle_from_matrix(theta))
+                if all_transformations:
+                    angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
+                    predicted_angles = np.append(predicted_angles, angle)
+                    shears = np.append(shears, shear)
+                    scale_xs = np.append(scale_xs, sx)
+                    scale_ys = np.append(scale_ys, sy)
+                    dets = np.append(dets, det)
+                else:
+                    predicted_angles = np.append(predicted_angles, angle_from_matrix(theta))
 
-            # # DEBUGGING
-            # plt.imshow(x[0,0])
-            # plt.colorbar()
-            # plt.figure()
-            # plt.imshow(rot_x[0,0])
-            # plt.colorbar()
-            # plt.figure()
-            # plt.imshow(model.stn(theta, rot_x)[0,0])
-            # plt.colorbar()
-            # plt.show()
-            # print('rotated', angles[0])
-            # print('predicted', angle_from_matrix(theta)[0], flush=True)
-            # print('theta', theta[0])
-            # raise SystemExit()
+                # # DEBUGGING
+                # plt.imshow(x[0,0])
+                # plt.colorbar()
+                # plt.figure()
+                # plt.imshow(rot_x[0,0])
+                # plt.colorbar()
+                # plt.figure()
+                # plt.imshow(model.stn(theta, rot_x)[0,0])
+                # plt.colorbar()
+                # plt.show()
+                # print('rotated', angles[0])
+                # print('predicted', angle_from_matrix(theta)[0], flush=True)
+                # print('theta', theta[0])
+                # raise SystemExit()
 
     variance = 0
     for i in range(10):
@@ -603,7 +604,7 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
             sy_by_label.append(scale_ys[indices])
             det_by_label.append(dets[indices])
 
-    print('Standard deviation', np.sqrt(variance / 10000))
+    print('Standard deviation', np.sqrt(variance / (epochs * 10000)))
 
     if plot == 'sep': # plot all digits separately
         assert not save_path, "Haven't implemented saving of more than one image"
