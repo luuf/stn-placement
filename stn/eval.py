@@ -441,6 +441,7 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     theta = model.localization[0](model.pre_stn[0](rot_x))
     stn2 = model.stn(theta, rot_x)
 
+    plt.gray()
     fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3),
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     for i in range(3):
