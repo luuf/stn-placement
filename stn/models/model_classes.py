@@ -2,6 +2,7 @@ import torch as t
 import torch.nn.functional as F
 import numpy as np
 from functools import reduce
+from copy import deepcopy
 
 
 def get_output_shape(input_shape, module):
@@ -104,7 +105,7 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False):
+                 stn_placement, loop, data_tag, batchnorm=False, shared=False):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
@@ -117,8 +118,14 @@ class Classifier(Modular_Model):
             self.final_layers = t.nn.Sequential(*layers)
 
         if loop:
-            self.loop_models = t.nn.ModuleList(
-                    [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
+            if shared:
+                self.loop_models = t.nn.ModuleList(
+                        [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
+                self.final_m = self.loop_models[-1]
+            else:
+                self.loop_models = t.nn.ModuleList(
+                        [t.nn.Sequential(*deepcopy(self.pre_stn[:i])) for i in range(1, len(self.pre_stn)+1)])
+                self.final_m = deepcopy(self.loop_models[-1])
             self.register_buffer(
                 'base_theta',
                 t.tensor(np.identity(3, dtype=np.float32))
@@ -208,7 +215,7 @@ class Classifier(Modular_Model):
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
-                x = m(x)
+                x = self.final_m(x)
             else:
                 for i,m in enumerate(self.pre_stn):
                     loc_input = m(x)
