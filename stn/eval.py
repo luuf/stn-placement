@@ -444,12 +444,12 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3),
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     for i in range(3):
-        axs[i,0].imshow(rot_x[i].detach().numpy()[0])
-        axs[i,1].imshow(stn1[i].detach().numpy()[0])
-        axs[i,2].imshow(stn2[i].detach().numpy()[0])
-        axs[i,0].axis(False)
-        axs[i,1].axis(False)
-        axs[i,2].axis(False)
+        axs[0,i].imshow(rot_x[i].detach().numpy()[0])
+        axs[1,i].imshow(stn1[i].detach().numpy()[0])
+        axs[2,i].imshow(stn2[i].detach().numpy()[0])
+        axs[0,i].axis(False)
+        axs[1,i].axis(False)
+        axs[2,i].axis(False)
     
     if title:
         plt.title(title)
@@ -772,9 +772,14 @@ def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=T
     noise = data.MNIST_noise()
     distance = np.random.randint(-16, 17, (3, 2))
     translated = t.zeros(3, 1, 60, 60, dtype=t.float)
-    for i, d in enumerate(distance):
-        translated[i, 0, 16-d[1] : 44-d[1], 16+d[0] : 44+d[0]] = im[0]
+    for i, (xd, yd) in enumerate(distance):
+        translated[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
         translated[i] = noise(translated[i])
+
+    if 'normalize' not in d:
+        print('Assuming no normalization.')
+    elif d['normalize']:
+        translated = (translated - 0.0363) / 0.1870
             
     model = get_model(model1)
     model.eval()
@@ -789,13 +794,14 @@ def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=T
 
     fig, axs = plt.subplots(3, 3,  figsize=(3,3), # sharex='col', sharey='row',
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    plt.gray()
     for i in range(3):
-        axs[i,0].imshow(translated[i].detach().numpy()[0])
-        axs[i,1].imshow(stn1[i].detach().numpy()[0])
-        axs[i,2].imshow(stn2[i].detach().numpy()[0])
-        axs[i,0].axis(False)
-        axs[i,1].axis(False)
-        axs[i,2].axis(False)
+        axs[0,i].imshow(translated[i].detach().numpy()[0])
+        axs[1,i].imshow(stn1[i].detach().numpy()[0])
+        axs[2,i].imshow(stn2[i].detach().numpy()[0])
+        axs[0,i].axis(False)
+        axs[1,i].axis(False)
+        axs[2,i].axis(False)
     
     if title:
         plt.title(title)
