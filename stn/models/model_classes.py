@@ -183,7 +183,7 @@ class Classifier(Modular_Model):
         if deep:
             self.final_layers = t.nn.Sequential(
                 *self.pre_stn, self.final_layers)
-            self.pre_stn = t.nn.ModuleList(t.nn.Identity for _ in self.pre_stn)
+            self.pre_stn = t.nn.ModuleList(t.nn.Sequential() for _ in self.pre_stn)
 
         self.output = self.out(np.prod(final_shape))
 
