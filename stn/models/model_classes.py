@@ -70,7 +70,7 @@ class Localization(Modular_Model):
         assert len(out_shape) == 1, "Localization output must be flat"
         self.affine_param = t.nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
-        self.affine_param.bias.data.zero_()
+        self.affine_param.bias.data.copy_(t.tensor([-0.33,0,0,0,-0.33,0],dtype=t.float))
         self.register_buffer(
             'identity', t.tensor([1,0,0,0,1,0],dtype=t.float))
 
