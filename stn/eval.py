@@ -9,6 +9,7 @@ from scipy.misc import imrotate
 import copy
 from os import path
 from functools import partial
+from importlib import reload
 
 directory, d, train_loader, test_loader, untransformed_test = None, None, None, None, None
 
