@@ -196,7 +196,7 @@ def test_multi_stn(model=0, n=4, di=None, version='final'):
             x = model.stn(theta[:,0:2,:], batch)
             transformed.append(x)
 
-    minimum = t.min(batch.detach())
+    minimum = t.min(batch)
     maximum = t.max(batch)
 
     k = len(transformed)
@@ -228,11 +228,17 @@ def test_stn(model=0, n=4, di=None, version='final'):
     if type(model) == int:
         model = get_model(model, di=di, version=version)
     model.eval()
+
     batch = next(iter(test_loader))[0][:n]
     theta = model.localization[0](model.pre_stn[0](batch))
     transformed_batch = model.stn(theta, batch)
+
+    minimum = t.min(batch)
+    maximum = t.max(batch)
+
     for image,transformed in zip(batch, transformed_batch):
-        transformed = transformed.detach()
+        image = (image - minimum) / (maximum - minimum)
+        transformed = (transformed.detach() - minimum) / (maximum - minimum)
         if image.shape[0] == 1:
             image = image[0,:,:]
             transformed = transformed[0,:,:]
