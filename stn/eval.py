@@ -552,7 +552,6 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
 
         for epoch in range(epochs):
             for x, y in unrotated_test:
-                x, y = x.to(device), y.to(device)
                 angles = np.random.uniform(-90, 90, x.shape[0])
                 rot_x = t.tensor([
                     rotate(im[0], angle) for im, angle in zip(x, angles)
@@ -560,7 +559,7 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
                 if normalize:
                     rot_x = rot_x - 0.1307 / 0.3081
 
-                theta = model.localization[0](model.pre_stn[0](rot_x))
+                theta = model.localization[0](model.pre_stn[0](rot_x.to(device)))
 
                 rotated_angles = np.append(rotated_angles, angles)
                 labels = np.append(labels, y)
@@ -694,7 +693,6 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         model.eval()
 
         for x, y in untransformed_test:
-            x, y = x.to(device), y.to(device)
             distance = np.random.randint(-16, 17, (x.shape[0], 2))
             translated = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
             for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
@@ -706,7 +704,7 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
             elif d['normalize']:
                 translated = (translated - 0.0363) / 0.1870
             
-            theta = model.localization[0](model.pre_stn[0](translated))
+            theta = model.localization[0](model.pre_stn[0](translated.to(device)))
 
             translated_distance = np.append(translated_distance, distance, axis=0)
             predicted_distance = np.append(
