@@ -373,7 +373,7 @@ def get_rotated_images(model=0, di=None, normalization=True,
         rotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
     if normalization:
-        rot_x = (rot_x - 0.1307) / 0.3081   # normalization
+        rot_x = (rot_x - 0.1307) / 0.3081
 
     # bordered_rot_x = copy.deepcopy(rot_x)
     # bordered_rot_x = bordered_rot_x * 0.3081 + 0.1307 # normalization
@@ -428,13 +428,10 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     assert len(angles) == 3
 
     rot_x = t.tensor([
-        imrotate(batch[i // 3][0], angle) for i, angle in enumerate(angles)
+        rotate(batch[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
-    # for unfathomable reasons, imrotate converts the image to 0-255
     if normalization:
-        rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255) # normalization
-    else:
-        rot_x = rot_x / 255
+        rot_x = (rot_x - 0.1307) / 0.3081
 
     model.eval()
     theta = model.localization[0](model.pre_stn[0](rot_x))
@@ -556,13 +553,10 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
             for x, y in unrotated_test:
                 angles = np.random.uniform(-90, 90, x.shape[0])
                 rot_x = t.tensor([
-                    imrotate(im[0], angle) for im, angle in zip(x, angles)
+                    rotate(im[0], angle) for im, angle in zip(x, angles)
                 ], dtype=t.float).reshape(-1, 1, 28, 28)
-                # for unfathomable reasons, imrotate converts the image to 0-255
                 if normalize:
-                    rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255)
-                else:
-                    rot_x = rot_x / 255
+                    rot_x = rot_x - 0.1307 / 0.3081
 
                 theta = model.localization[0](model.pre_stn[0](rot_x))
 
