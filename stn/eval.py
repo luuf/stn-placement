@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import models
 import data
-from scipy.misc import imrotate
+from skimage.transform import rotate
 import copy
 from os import path
 from functools import partial
@@ -370,13 +370,10 @@ def get_rotated_images(model=0, di=None, normalization=True,
 
     angles = np.random.uniform(-90, 90, 3*10)
     rot_x = t.tensor([
-        imrotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
+        rotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
-    # for unfathomable reasons, imrotate converts the image to 0-255
     if normalization:
-        rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255) # normalization
-    else:
-        rot_x = rot_x / 255
+        rot_x = (rot_x - 0.1307) / 0.3081   # normalization
 
     # bordered_rot_x = copy.deepcopy(rot_x)
     # bordered_rot_x = bordered_rot_x * 0.3081 + 0.1307 # normalization
