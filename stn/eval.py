@@ -559,7 +559,7 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
                 if normalize:
                     rot_x = rot_x - 0.1307 / 0.3081
 
-                theta = model.localization[0](model.pre_stn[0](rot_x.to(device)))
+                theta = model.localization[0](model.pre_stn[0](rot_x.to(device))).cpu()
 
                 rotated_angles = np.append(rotated_angles, angles)
                 labels = np.append(labels, y)
@@ -704,7 +704,7 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
             elif d['normalize']:
                 translated = (translated - 0.0363) / 0.1870
             
-            theta = model.localization[0](model.pre_stn[0](translated.to(device)))
+            theta = model.localization[0](model.pre_stn[0](translated.to(device))).cpu()
 
             translated_distance = np.append(translated_distance, distance, axis=0)
             predicted_distance = np.append(
