@@ -528,6 +528,8 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
     assert d['rotate']
     _, unrotated_test = data.data_dict[d['dataset']](
         rotate=False, normalize=False) 
+    if next(model.parameters()).is_cuda:
+        unrotated_test = unrotated_test.cuda()
 
     rotated_angles = np.array([])
     predicted_angles = np.array([])
@@ -665,6 +667,8 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         model = get_model(model, di=di)
 
     _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
+    if next(model.parameters()).is_cuda:
+        untransformed_test = untransformed_test.cuda()
 
     noise = data.MNIST_noise()
 
