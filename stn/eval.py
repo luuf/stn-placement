@@ -524,12 +524,11 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
                         normalize=True, epochs=1, save_path='', title=''):
     if type(model) == int:
         model = get_model(model, di=di)
+    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
     assert d['rotate']
     _, unrotated_test = data.data_dict[d['dataset']](
         rotate=False, normalize=False) 
-    if next(model.parameters()).is_cuda:
-        unrotated_test = unrotated_test.cuda()
 
     rotated_angles = np.array([])
     predicted_angles = np.array([])
@@ -553,6 +552,7 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
 
         for epoch in range(epochs):
             for x, y in unrotated_test:
+                x, y = x.to(device), y.to(device)
                 angles = np.random.uniform(-90, 90, x.shape[0])
                 rot_x = t.tensor([
                     rotate(im[0], angle) for im, angle in zip(x, angles)
@@ -665,10 +665,9 @@ def plot_distance(tran, pred):
 def translation_statistics(model=0, plot=True, di=None, all_transformations=False):
     if type(model) == int:
         model = get_model(model, di=di)
+    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
     _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
-    if next(model.parameters()).is_cuda:
-        untransformed_test = untransformed_test.cuda()
 
     noise = data.MNIST_noise()
 
@@ -695,6 +694,7 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
         model.eval()
 
         for x, y in untransformed_test:
+            x, y = x.to(device), y.to(device)
             distance = np.random.randint(-16, 17, (x.shape[0], 2))
             translated = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
             for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
