@@ -218,7 +218,7 @@ eval.d = d      # used when calling functions from eval
 
 #%% Setup
 print('Will switch learning rate after',args.switch_after_iterations,'iterations',
-      '≈', args.switch_after_iterations / len(train_loader), 'epochs')
+      'approximately', args.switch_after_iterations / len(train_loader), 'epochs')
 
 def get_scheduler(optimizer):
     return StepLRBase(
@@ -348,10 +348,11 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-            if args.dataset == 'translate':
+        if epoch % 50 == 0:
+            if args.dataset == 'translate' and localization_class:
                 res = eval.translation_statistics(
                     model, plot=False, all_transformations=True)
-            elif args.rotate:
+            elif args.rotate and localization_class:
                 res = eval.rotation_statistics(
                     model, plot=False, all_transformations=True, normalize=args.normalize)
             sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
