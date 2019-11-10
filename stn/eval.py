@@ -459,6 +459,45 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
 
+
+def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
+    n = 5
+
+    model = get_model(model1, di=di1)
+    batch = next(iter(test_loader))[0][:n]
+
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](batch))
+    stn1 = model.stn(theta, batch)
+
+    model = get_model(model2, di=di2)
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](batch))
+    stn2 = model.stn(theta, batch)
+
+    plt.gray()
+    fig, axs = plt.subplots(3, n, sharex='col', sharey='row', figsize=(n,3),
+                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    minimum = t.min(batch)
+    maximum = t.max(batch)
+    batch = (batch.detach() - minimum) / (maximum - minimum)
+    stn1 = (stn1.detach() - minimum) / (maximum - minimum)
+    stn2 = (stn2.detach() - minimum) / (maximum - minimum)
+    for i in range(n):
+        axs[0,i].imshow(np.moveaxis(batch[i].numpy(), 0, -1))
+        axs[1,i].imshow(np.moveaxis(stn1[i].numpy(), 0, -1))
+        axs[2,i].imshow(np.moveaxis(stn2[i].numpy(), 0, -1))
+        axs[0,i].axis(False)
+        axs[1,i].axis(False)
+        axs[2,i].axis(False)
+
+    if title:
+        plt.title(title)
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
+    plt.show()
+
+
 def angle_from_matrix(thetas, all_transformations=False):
     # V1: Inverts in order to get parameters for the number's
     #     transformation, and decomposes into Scale Shear Rot
