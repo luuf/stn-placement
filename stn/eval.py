@@ -525,11 +525,12 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def plot_angles(rot, pred, line=True, save_path='', title='', xlabel='', ylabel='', pos_slope=True):
+def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylabel=''):
+    plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
     extent = [-110, 110, -110, 110]
-    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='viridis')
+    plt.imshow(heatmap.T, extent=extent, cmap='viridis', origin = 'lower')
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
 
@@ -549,10 +550,10 @@ def plot_angles(rot, pred, line=True, save_path='', title='', xlabel='', ylabel=
         c = y - m*x
 
         print('m:', m, '  c:', c)
-        if line == 'only':
-            label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
+        label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
         l = plt.plot(rot, m*rot + c, 'r', label=label)
-        plt.legend()
+        if line == 'label':
+            plt.legend()
 
     plt.title(title)
     plt.xlabel(xlabel)
