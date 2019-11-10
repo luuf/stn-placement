@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import models
 import data
-from scipy.misc import imrotate
+from skimage.transform import rotate
 import copy
 from os import path
 from functools import partial
+from importlib import reload
 
 directory, d, train_loader, test_loader, untransformed_test = None, None, None, None, None
 
@@ -18,15 +19,20 @@ def load_data(data_dir, normalize=True):
     directory = '../experiments/'+data_dir
 
     d = t.load(directory+"/model_details")
+    if 'normalize' in d:
+        normalize = d['normalize']
+    elif d['dataset'] == 'translate':
+        print('Assuming no normalizaion on translated data')
+        normalize = False
+
     if d['dataset'] in data.data_dict:
-        train_loader, test_loader = data.data_dict[d['dataset']](d['rotate'])
+        train_loader, test_loader = data.data_dict[d['dataset']](
+            rotate = d['rotate'], normalize = normalize)
         if d['rotate']:
             _, untransformed_test = data.data_dict[d['dataset']](
                 rotate=False, normalize=normalize)
         elif d['dataset'] == 'translate':
             _, untransformed_test = data.mnist(rotate=False, normalize=False)
-        else:
-            untransformed_test = None
     else:
         try:
             train_loader, test_loader = data.get_precomputed(
@@ -178,7 +184,7 @@ def test_multi_stn(model=0, n=4, di=None, version='final'):
             x = model.stn(theta[:,0:2,:], batch)
             transformed.append(x)
 
-    minimum = t.min(batch.detach())
+    minimum = t.min(batch)
     maximum = t.max(batch)
 
     k = len(transformed)
@@ -210,11 +216,17 @@ def test_stn(model=0, n=4, di=None, version='final'):
     if type(model) == int:
         model = get_model(model, di=di, version=version)
     model.eval()
+
     batch = next(iter(test_loader))[0][:n]
     theta = model.localization[0](model.pre_stn[0](batch))
     transformed_batch = model.stn(theta, batch)
+
+    minimum = t.min(batch)
+    maximum = t.max(batch)
+
     for image,transformed in zip(batch, transformed_batch):
-        transformed = transformed.detach()
+        image = (image - minimum) / (maximum - minimum)
+        transformed = (transformed.detach() - minimum) / (maximum - minimum)
         if image.shape[0] == 1:
             image = image[0,:,:]
             transformed = transformed[0,:,:]
@@ -346,13 +358,10 @@ def get_rotated_images(model=0, di=None, normalization=True,
 
     angles = np.random.uniform(-90, 90, 3*10)
     rot_x = t.tensor([
-        imrotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
+        rotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
-    # for unfathomable reasons, imrotate converts the image to 0-255
     if normalization:
-        rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255) # normalization
-    else:
-        rot_x = rot_x / 255
+        rot_x = (rot_x - 0.1307) / 0.3081
 
     # bordered_rot_x = copy.deepcopy(rot_x)
     # bordered_rot_x = bordered_rot_x * 0.3081 + 0.1307 # normalization
@@ -407,13 +416,10 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     assert len(angles) == 3
 
     rot_x = t.tensor([
-        imrotate(batch[i // 3][0], angle) for i, angle in enumerate(angles)
+        rotate(batch[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
-    # for unfathomable reasons, imrotate converts the image to 0-255
     if normalization:
-        rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255) # normalization
-    else:
-        rot_x = rot_x / 255
+        rot_x = (rot_x - 0.1307) / 0.3081
 
     model.eval()
     theta = model.localization[0](model.pre_stn[0](rot_x))
@@ -424,6 +430,7 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     theta = model.localization[0](model.pre_stn[0](rot_x))
     stn2 = model.stn(theta, rot_x)
 
+    plt.gray()
     fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3),
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     for i in range(3):
@@ -439,6 +446,45 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
+
+
+def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
+    n = 5
+
+    model = get_model(model1, di=di1)
+    batch = next(iter(test_loader))[0][:n]
+
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](batch))
+    stn1 = model.stn(theta, batch)
+
+    model = get_model(model2, di=di2)
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](batch))
+    stn2 = model.stn(theta, batch)
+
+    plt.gray()
+    fig, axs = plt.subplots(3, n, sharex='col', sharey='row', figsize=(n,3),
+                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    minimum = t.min(batch)
+    maximum = t.max(batch)
+    batch = (batch.detach() - minimum) / (maximum - minimum)
+    stn1 = (stn1.detach() - minimum) / (maximum - minimum)
+    stn2 = (stn2.detach() - minimum) / (maximum - minimum)
+    for i in range(n):
+        axs[0,i].imshow(np.moveaxis(batch[i].numpy(), 0, -1))
+        axs[1,i].imshow(np.moveaxis(stn1[i].numpy(), 0, -1))
+        axs[2,i].imshow(np.moveaxis(stn2[i].numpy(), 0, -1))
+        axs[0,i].axis(False)
+        axs[1,i].axis(False)
+        axs[2,i].axis(False)
+
+    if title:
+        plt.title(title)
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
+    plt.show()
+
 
 def angle_from_matrix(thetas, all_transformations=False):
     # V1: Inverts in order to get parameters for the number's
@@ -467,11 +513,12 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def plot_angles(rot, pred, line=True, save_path='', title=''):
+def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylabel=''):
+    plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
     extent = [-110, 110, -110, 110]
-    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='viridis')
+    plt.imshow(heatmap.T, extent=extent, cmap='viridis', origin = 'lower')
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
 
@@ -493,22 +540,28 @@ def plot_angles(rot, pred, line=True, save_path='', title=''):
         print('m:', m, '  c:', c)
         label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
         l = plt.plot(rot, m*rot + c, 'r', label=label)
-        plt.legend()
+        if line == 'label':
+            plt.legend()
 
-    if title:
-        plt.title(title)
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     if save_path:
         plt.savefig(save_path, bbox_inches = 'tight', pad_inches=0)
     plt.show()
 
 def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
                         normalize=True, epochs=1, save_path='', title=''):
+    global unrotated_test
     if type(model) == int:
         model = get_model(model, di=di)
+        _, unrotated_test = data.data_dict[d['dataset']](
+            rotate=False, normalize=False)
+    elif 'unrotated_test' not in globals():
+        _, unrotated_test = data.data_dict[d['dataset']](
+            rotate=False, normalize=False)
 
-    assert d['rotate']
-    _, unrotated_test = data.data_dict[d['dataset']](
-        rotate=False, normalize=False) 
+    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
     rotated_angles = np.array([])
     predicted_angles = np.array([])
@@ -534,15 +587,12 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
             for x, y in unrotated_test:
                 angles = np.random.uniform(-90, 90, x.shape[0])
                 rot_x = t.tensor([
-                    imrotate(im[0], angle) for im, angle in zip(x, angles)
+                    rotate(im[0], angle) for im, angle in zip(x, angles)
                 ], dtype=t.float).reshape(-1, 1, 28, 28)
-                # for unfathomable reasons, imrotate converts the image to 0-255
                 if normalize:
-                    rot_x = (rot_x - 0.1307 * 255) / (0.3081 * 255)
-                else:
-                    rot_x = rot_x / 255
+                    rot_x = (rot_x - 0.1307) / 0.3081
 
-                theta = model.localization[0](model.pre_stn[0](rot_x))
+                theta = model.localization[0](model.pre_stn[0](rot_x.to(device))).cpu()
 
                 rotated_angles = np.append(rotated_angles, angles)
                 labels = np.append(labels, y)
@@ -609,11 +659,11 @@ def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
     if plot == 'all': # plot all data at once
         plot_angles(rotated_angles, predicted_angles, save_path=save_path, title=title)
         
-        # if all_transformations:
-        #     assert not save_path, "Haven't implemented saving of more than one image"
-        #     plot_angles(rotated_angles, 100 * shears)
-        #     plot_angles(rotated_angles, 50 * scale_xs)
-        #     plot_angles(rotated_angles, 50 * scale_ys)
+        if all_transformations:
+            assert not save_path, "Haven't implemented saving of more than one image"
+            plot_angles(rotated_angles, 100 * shears)
+            plot_angles(rotated_angles, 50 * scale_xs)
+            plot_angles(rotated_angles, 50 * scale_ys)
 
 
     if all_transformations:
@@ -645,10 +695,14 @@ def plot_distance(tran, pred):
     plt.show()
 
 def translation_statistics(model=0, plot=True, di=None, all_transformations=False):
+    global untranslated_test
     if type(model) == int:
         model = get_model(model, di=di)
+        _, untranslated_test = data.mnist(rotate=False, normalize=False, translate=False)
+    elif 'untranslated_test' not in globals():
+        _, untranslated_test = data.mnist(rotate=False, normalize=False, translate=False)
 
-    _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
+    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
     noise = data.MNIST_noise()
 
@@ -674,14 +728,19 @@ def translation_statistics(model=0, plot=True, di=None, all_transformations=Fals
     with t.no_grad():
         model.eval()
 
-        for x, y in untransformed_test:
+        for x, y in untranslated_test:
             distance = np.random.randint(-16, 17, (x.shape[0], 2))
             translated = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
-            for i,(im, d) in enumerate(zip(x, distance)):
-                translated[i, 0, 16-d[1] : 44-d[1], 16+d[0] : 44+d[0]] = im[0]
+            for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
+                translated[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
                 translated[i] = noise(translated[i])
+
+            if 'normalize' not in d:
+                print('Assuming no normalization.')
+            elif d['normalize']:
+                translated = (translated - 0.0363) / 0.1870
             
-            theta = model.localization[0](model.pre_stn[0](translated))
+            theta = model.localization[0](model.pre_stn[0](translated.to(device))).cpu()
 
             translated_distance = np.append(translated_distance, distance, axis=0)
             predicted_distance = np.append(
@@ -740,7 +799,6 @@ def average_n(res, n):
             s += sum(label)
         s /= len(untransformed_test.dataset)
         print(s)
-
 
 def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True, save_path='', title=''):
     n = 1
