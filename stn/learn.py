@@ -3,6 +3,7 @@ import torch as t
 import torchvision as tv
 import numpy as np
 import time
+import eval
 from argparse import ArgumentParser
 from os import makedirs, path
 import data
@@ -190,8 +191,7 @@ directory = args.name + '/'
 makedirs(directory, exist_ok=True)
 
 # Save model details
-t.save(
-    {
+d = {
         'dataset': args.dataset,
         'model': args.model,
         'model_parameters': args.model_parameters,
@@ -211,13 +211,14 @@ t.save(
         'rotate': args.rotate,
         'normalize': args.normalize,
         'batchnorm': args.batchnorm,
-    },
-    directory + 'model_details',
-)
+    }
+t.save(d, directory + 'model_details')
+eval.d = d      # used when calling functions from eval
+
 
 #%% Setup
 print('Will switch learning rate after',args.switch_after_iterations,'iterations',
-      '≈', args.switch_after_iterations / len(train_loader), 'epochs')
+      'approximately', args.switch_after_iterations / len(train_loader), 'epochs')
 
 def get_scheduler(optimizer):
     return StepLRBase(
@@ -347,6 +348,16 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
+        if epoch % 50 == 0 and localization_class:
+            if args.dataset == 'translate':
+                res = eval.translation_statistics(
+                    model, plot=False, all_transformations=True)
+            elif args.rotate:
+                res = eval.rotation_statistics(
+                    model, plot=False, all_transformations=True, normalize=args.normalize)
+            sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
+            sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+            print('x-scaling', sx, 'y-scaling', sy)
 
     total_time = time.time() - start_time
     print('Time', total_time)
@@ -362,6 +373,17 @@ for run in range(args.runs):
     print()
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
+
+    if localization_class:
+        if args.dataset == 'translate':
+            res = eval.translation_statistics(
+                model, plot=False, all_transformations=True)
+        elif args.rotate:
+            res = eval.rotation_statistics(
+                model, plot=False, all_transformations=True, normalize=args.normalize)
+        sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
+        sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+        print('x-scaling', sx, 'y-scaling', sy)
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
