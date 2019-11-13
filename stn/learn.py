@@ -348,11 +348,11 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-        if epoch % 50 == 0:
-            if args.dataset == 'translate' and localization_class:
+        if epoch % 50 == 0 and localization_class:
+            if args.dataset == 'translate':
                 res = eval.translation_statistics(
                     model, plot=False, all_transformations=True)
-            elif args.rotate and localization_class:
+            elif args.rotate:
                 res = eval.rotation_statistics(
                     model, plot=False, all_transformations=True, normalize=args.normalize)
             sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
@@ -374,15 +374,16 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
-    if args.dataset == 'translate':
-        res = eval.translation_statistics(
-            model, plot=False, all_transformations=True)
-    elif args.rotate:
-        res = eval.rotation_statistics(
-            model, plot=False, all_transformations=True, normalize=args.normalize)
-    sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
-    sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
-    print('x-scaling', sx, 'y-scaling', sy)
+    if localization_class:
+        if args.dataset == 'translate':
+            res = eval.translation_statistics(
+                model, plot=False, all_transformations=True)
+        elif args.rotate:
+            res = eval.rotation_statistics(
+                model, plot=False, all_transformations=True, normalize=args.normalize)
+        sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
+        sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+        print('x-scaling', sx, 'y-scaling', sy)
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
