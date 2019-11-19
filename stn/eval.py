@@ -531,14 +531,16 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylabel=''):
+def plot_angles(rot, pred, line='equation', save_path='', title='', xlabel='', ylabel='', pointlabel=''):
     plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
     extent = [-110, 110, -110, 110]
-    plt.imshow(heatmap.T, extent=extent, cmap='viridis', origin = 'lower')
+    plt.imshow(heatmap.T, extent=extent, cmap='Greys', origin = 'lower')
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
+
+    plt.scatter([-1],[-1],s=2,c='black',label=pointlabel)
 
     if line:
         # # Minimize vertical error
@@ -556,16 +558,20 @@ def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylab
         c = y - m*x
 
         print('m:', m, '  c:', c)
-        label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
-        l = plt.plot(rot, m*rot + c, 'r', label=label)
-        if line == 'label':
-            plt.legend()
+        if line == 'equation':
+            label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
+        elif line is not True:
+            label = line
+        else:
+            label = ''
+        plt.plot(rot, m*rot + c, 'r', label=label)
 
+    plt.legend()
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if save_path:
-        plt.savefig(save_path, bbox_inches = 'tight', pad_inches=0)
+        plt.savefig(save_path, bbox_inches = 'tight', pad_inches=.03)
     plt.show()
 
 def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
@@ -846,7 +852,7 @@ def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=T
     theta = model.localization[0](model.pre_stn[0](translated))
     stn2 = model.stn(theta, translated)
 
-    fig, axs = plt.subplots(3, 3,  figsize=(3,3), # sharex='col', sharey='row',
+    fig, axs = plt.subplots(3, 3,  figsize=(3,3.04), # sharex='col', sharey='row',
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     plt.gray()
     for i in range(3):
