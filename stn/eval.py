@@ -30,7 +30,7 @@ def load_data(data_dir, normalize=True):
             rotate = d['rotate'], normalize = normalize)
         if d['rotate']:
             _, untransformed_test = data.data_dict[d['dataset']](
-                rotate=False, normalize=normalize)
+                rotate=False, normalize=False)
         elif d['dataset'] == 'translate':
             _, untransformed_test = data.mnist(rotate=False, normalize=False)
     else:
@@ -45,6 +45,11 @@ def load_data(data_dir, normalize=True):
 def get_model(prefix, version='final', di=None, llr=False):
     if di is not None:
         load_data(di)
+
+    # localization_class = partial(
+    #     models.localization_dict[d['localization']],
+    #     parameters = d['localization_parameters'],
+    # )
 
     if llr is not False:
         llr = d['loc_lr_multiplier'] if llr is True else llr
@@ -404,15 +409,13 @@ def get_rotated_images(model=0, di=None, normalization=True,
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
 
-def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
-                      normalization=True, save_path='', title=''):
-    n = 1
-
+def compare_rotations(di1, di2, model1=0, model2=0, angles=[], normalization=True,
+                      ylabels = ['','',''], save_path='', title=''):
     model = get_model(model1, di=di1)
-    batch = next(iter(untransformed_test))[0][:n]
+    batch = next(iter(untransformed_test))[0][:1]
 
     if len(angles) == 0:
-        angles = np.random.uniform(-90, 90, 3*n)
+        angles = np.random.uniform(-90, 90, 3)
     assert len(angles) == 3
 
     rot_x = t.tensor([
@@ -430,22 +433,30 @@ def compare_rotations(di1, di2, model1=0, model2=0, angles=[],
     theta = model.localization[0](model.pre_stn[0](rot_x))
     stn2 = model.stn(theta, rot_x)
 
-    plt.gray()
-    fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3),
+    fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3.04),
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    plt.gray()
     for i in range(3):
         axs[0,i].imshow(rot_x[i].detach().numpy()[0])
         axs[1,i].imshow(stn1[i].detach().numpy()[0])
         axs[2,i].imshow(stn2[i].detach().numpy()[0])
-        axs[0,i].axis(False)
-        axs[1,i].axis(False)
-        axs[2,i].axis(False)
+        axs[0,i].set_xticks([])
+        axs[0,i].set_yticks([])
+        axs[1,i].set_xticks([])
+        axs[1,i].set_yticks([])
+        axs[2,i].set_xticks([])
+        axs[2,i].set_yticks([])
+
+    for ax,y in zip(axs[:,0], ylabels):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_ylabel(y)
     
-    if title:
-        plt.title(title)
+    fig.suptitle(title)
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
-    plt.show()
+    else:
+        plt.show()
 
 
 def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
@@ -513,14 +524,16 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylabel=''):
+def plot_angles(rot, pred, line='equation', save_path='', title='', xlabel='', ylabel='', pointlabel=''):
     plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
     extent = [-110, 110, -110, 110]
-    plt.imshow(heatmap.T, extent=extent, cmap='viridis', origin = 'lower')
+    plt.imshow(heatmap.T, extent=extent, cmap='Greys', origin = 'lower')
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
+
+    plt.scatter([-1],[-1],s=2,c='black',label=pointlabel)
 
     if line:
         # # Minimize vertical error
@@ -538,16 +551,20 @@ def plot_angles(rot, pred, line='label', save_path='', title='', xlabel='', ylab
         c = y - m*x
 
         print('m:', m, '  c:', c)
-        label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
-        l = plt.plot(rot, m*rot + c, 'r', label=label)
-        if line == 'label':
-            plt.legend()
+        if line == 'equation':
+            label = '{:.2f}x {} {:.1f}'.format(m, '-' if c<0 else '+', abs(c))
+        elif line is not True:
+            label = line
+        else:
+            label = ''
+        plt.plot(rot, m*rot + c, 'r', label=label)
 
+    plt.legend()
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if save_path:
-        plt.savefig(save_path, bbox_inches = 'tight', pad_inches=0)
+        plt.savefig(save_path, bbox_inches = 'tight', pad_inches=.03)
     plt.show()
 
 def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
@@ -800,11 +817,10 @@ def average_n(res, n):
         s /= len(untransformed_test.dataset)
         print(s)
 
-def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True, save_path='', title=''):
-    n = 1
-
+def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True,
+                        ylabels = ['','',''], save_path='', title=''):
     load_data(di1)
-    im = next(iter(untransformed_test))[0][:n]
+    im = next(iter(untransformed_test))[0][:1]
 
     noise = data.MNIST_noise()
     distance = np.random.randint(-16, 17, (3, 2))
@@ -829,22 +845,30 @@ def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=T
     theta = model.localization[0](model.pre_stn[0](translated))
     stn2 = model.stn(theta, translated)
 
-    fig, axs = plt.subplots(3, 3,  figsize=(3,3), # sharex='col', sharey='row',
+    fig, axs = plt.subplots(3, 3,  figsize=(3,3.04), # sharex='col', sharey='row',
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     plt.gray()
     for i in range(3):
         axs[0,i].imshow(translated[i].detach().numpy()[0])
         axs[1,i].imshow(stn1[i].detach().numpy()[0])
         axs[2,i].imshow(stn2[i].detach().numpy()[0])
-        axs[0,i].axis(False)
-        axs[1,i].axis(False)
-        axs[2,i].axis(False)
+        axs[0,i].set_xticks([])
+        axs[0,i].set_yticks([])
+        axs[1,i].set_xticks([])
+        axs[1,i].set_yticks([])
+        axs[2,i].set_xticks([])
+        axs[2,i].set_yticks([])
+
+    for ax,y in zip(axs[:,0], ylabels):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_ylabel(y)
     
-    if title:
-        plt.title(title)
+    fig.suptitle(title)
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
-    plt.show()
+    else:
+        plt.show()
 
 
 def plot_results(folder, n_prefixes, *args):
