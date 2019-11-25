@@ -531,7 +531,8 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def plot_angles(rot, pred, line='equation', save_path='', title='', xlabel='', ylabel='', pointlabel=''):
+def plot_angles(rot, pred, line='equation', save_path='', title='',
+                xlabel='', ylabel='', pointlabel='', ll='best'):
     plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
@@ -566,7 +567,7 @@ def plot_angles(rot, pred, line='equation', save_path='', title='', xlabel='', y
             label = ''
         plt.plot(rot, m*rot + c, 'r', label=label)
 
-    plt.legend()
+    plt.legend(loc=ll)
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
