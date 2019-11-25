@@ -35,7 +35,19 @@ class MNIST_noise:
             img += self.transform(self.data[i][0])
         return t.clamp(img, max=1)
 
-def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
+class RandomScale:
+    def __init__(self, loglow, loghigh):
+        self.loglow = loglow
+        self.loghigh = loghigh
+
+    def __call__(self, img):
+        return tv.transforms.functional.affine(
+            img, angle=0, translate=(0,0), shear=0,
+            scale = 2**(np.random.uniform(self.loglow, self.loghigh)),
+            resample = PIL.Image.BILINEAR,
+            fillcolor = 0)
+
+def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=256):
     """Gets the mnist dataset from torchvision, and manipulates it.
     Args:
         rotate (bool): Whether to rotate the images a random amount
@@ -46,6 +58,8 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
             random location of a black 60x60 image, and MNIST_noise
             is applied to each image. If translate is True, no rotation
             or normalization is performed.
+        scale (bool): If True, the mnist digits are scaled a random amount.
+        batch_size (int): The size of minibatches.
     """
     if translate:
         transforms = [
@@ -57,6 +71,12 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
         if normalize:
             transforms.append(tv.transforms.Normalize((0.0363,), (0.1870,)))
             # approximate numbers derived from the transformation process
+    elif scale:
+        transforms = [
+            tv.transforms.Pad(3*28//2),
+            RandomScale(-1, 2),
+            tv.transforms.ToTensor(),
+        ]
     else:
         transforms = [tv.transforms.ToTensor()]
         if rotate:
@@ -83,7 +103,13 @@ def mnist(rotate=True, normalize=True, translate=False, batch_size=256):
 def translated_mnist(rotate=False,normalize=False, batch_size=256):
     "Helper function to call mnist with certain variables"
     assert rotate is False
-    return mnist(False, normalize, True, batch_size=batch_size)
+    return mnist(rotate=False, normalize=normalize, translate=True, batch_size=batch_size)
+
+def scaled_mnist(rotate=False, normalize=False, batch_size=256):
+    "Helper function to call mnist with certain variables"
+    assert rotate is False
+    assert normalize is False, "Have not implemented normalization yet"
+    return mnist(rotate=False, normalize=False, translate=False, scale=True, batch_size=batch_size)
 
 
 def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
@@ -230,6 +256,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
 data_dict = {
     'mnist': mnist,
     'translate': translated_mnist,
+    'scale': scaled_mnist,
     'cifar10': cifar10,
     'augment': augmented_cifar,
 }
