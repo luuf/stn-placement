@@ -348,13 +348,10 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-        if epoch % 50 == 0 and localization_class and args.dataset in ['translate', 'mnist']:
-            if args.dataset == 'translate':
-                res = eval.translation_statistics(
-                    model, plot=False, all_transformations=True)
-            elif args.rotate:
-                res = eval.rotation_statistics(
-                    model, plot=False, all_transformations=True, normalize=args.normalize)
+        if epoch % 50 == 0 and localization_class and args.dataset in ['mnist', 'translate', 'scale']:
+            res = eval.transformation_statistics(
+                model, plot=False, normalize=args.normalize,
+                transform = 'rotate' if args.rotate else args.dataset)
             sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
             sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
             print('x-scaling', sx, 'y-scaling', sy)
@@ -374,13 +371,10 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
-    if localization_class and args.dataset in ['translate', 'mnist']:
-        if args.dataset == 'translate':
-            res = eval.translation_statistics(
-                model, plot=False, all_transformations=True)
-        elif args.rotate:
-            res = eval.rotation_statistics(
-                model, plot=False, all_transformations=True, normalize=args.normalize)
+    if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
+        res = eval.transformation_statistics(
+            model, plot=False, normalize=args.normalize,
+            transform = 'rotate' if args.rotate else args.dataset)
         sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
         sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
         print('x-scaling', sx, 'y-scaling', sy)
