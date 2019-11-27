@@ -6,6 +6,7 @@ import models.svhn as svhn
 
 localization_dict = {
     'CNN':      mnist.CNN_localization,
+    'CNNmp':    mnist.CNN_mp,
     'CNNm':     mnist.CNN_middleloc,
     'CNNmb':    mnist.CNN_middleloc_batchnorm,
     'CNNt':     mnist.CNN_translate,
