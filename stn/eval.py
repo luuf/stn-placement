@@ -1,15 +1,16 @@
 #%%
 import torch as t
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
+import torchvision.transforms.functional as tvF
+import PIL.Image
 import numpy as np
 import models
 import data
+import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
 from skimage.transform import rotate
-import copy
 from os import path
 from functools import partial
-from importlib import reload
 
 directory, d, train_loader, test_loader, untransformed_test = None, None, None, None, None
 
@@ -28,11 +29,8 @@ def load_data(data_dir, normalize=True):
     if d['dataset'] in data.data_dict:
         train_loader, test_loader = data.data_dict[d['dataset']](
             rotate = d['rotate'], normalize = normalize)
-        if d['rotate']:
-            _, untransformed_test = data.data_dict[d['dataset']](
-                rotate=False, normalize=False)
-        elif d['dataset'] == 'translate':
-            _, untransformed_test = data.mnist(rotate=False, normalize=False)
+        if d['dataset'] in ['mnist', 'translate', 'scale']:
+            _, untransformed_test = data.mnist(rotate=False, translate=False, normalize=False)
     else:
         try:
             train_loader, test_loader = data.get_precomputed(
@@ -509,7 +507,9 @@ def angle_from_matrix(thetas, all_transformations=False):
     #     transformation, and decomposes into Scale Shear Rot
     mat = F.pad(thetas, (0, 3)).view(-1,3,3)
     mat[:,2,2] = 1
+
     transform = t.inverse(mat)
+
     angle = (np.arctan2(transform[:,0,1], transform[:,0,0])) * 180 / np.pi
     # negated twice because the y-axis is inverted and 
     # because I use counter-clockwise as positive direction
@@ -530,6 +530,42 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # of the predicted transform, because the y-axis is inverted,
     # # and because I use counter-clockwise as positive direction
 
+
+# def plot_everything(res, seperate=False):
+#     rot_by_label = res[0]
+#     angle_by_label = res[1]
+#     scale_by_label = res[3]
+#     shear_by_label = res[5]
+#     if seperate:
+#         for i in range(10):
+#             print('Plotting label', i)
+#             plot_angles(rot_by_label[i], angle_by_label[i])
+#             plot_angles(rot_by_label[i], 100 * shear_by_label[i])
+#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,0])
+#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,1])
+
+#             plt.hist(shear_by_label[i], 50, range=(-1.25, 1.25))
+#             plt.figure()
+#             plt.hist(scale_by_label[i][:,0], 50, range=(0.5, 2.5))
+#             plt.figure()
+#             plt.hist(scale_by_label[i][:,1], 50, range=(0.5, 2.5))
+#             plt.show()
+#     else:
+#         rotated_angles = np.concatenate(rot_by_label)
+#         plot_angles(rotated_angles, np.concatenate(angle_by_label), save_path=save_path, title=title)
+#         plot_angles(rotated_angles, 100 * np.concatenate(shear_by_label))
+#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,0])
+#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,1])
+
+def distance_from_matrix(thetas):
+    thetas = thetas.view((-1,2,3))
+    # distances = np.array([
+    #     np.linalg.solve(theta[:,0:2], theta[:,2]) for theta in thetas
+    # ])
+    return np.array(thetas[:,:,2]) * np.array([-1, 1]) * 30
+    # This is probably wrong for translations beyond the third layer.
+    # Is negated twice because the digits are transformed in the reverse
+    # of predicted transform, and because the y-axis is inverted.
 
 def plot_angles(rot, pred, line='equation', save_path='', title='',
                 xlabel='', ylabel='', pointlabel='', ll='best'):
@@ -572,250 +608,178 @@ def plot_angles(rot, pred, line='equation', save_path='', title='',
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if save_path:
-        plt.savefig(save_path, bbox_inches = 'tight', pad_inches=.03)
+        plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
     plt.show()
 
-def rotation_statistics(model=0, plot='all', di=None, all_transformations=False,
-                        normalize=True, epochs=1, save_path='', title=''):
-    global unrotated_test
-    if type(model) == int:
-        model = get_model(model, di=di)
-        _, unrotated_test = data.data_dict[d['dataset']](
-            rotate=False, normalize=False)
-    elif 'unrotated_test' not in globals():
-        _, unrotated_test = data.data_dict[d['dataset']](
-            rotate=False, normalize=False)
-
-    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
-
-    rotated_angles = np.array([])
-    predicted_angles = np.array([])
-    rot_by_label = []
-    pred_by_label = []
-
-    labels = np.array([])
-    
-    if all_transformations:
-        shears = np.array([])
-        scale_xs = np.array([])
-        scale_ys = np.array([])
-        dets = np.array([])
-        shear_by_label = []
-        sx_by_label = []
-        sy_by_label = []
-        det_by_label = []
-
-    with t.no_grad():
-        model.eval()
-
-        for epoch in range(epochs):
-            for x, y in unrotated_test:
-                angles = np.random.uniform(-90, 90, x.shape[0])
-                rot_x = t.tensor([
-                    rotate(im[0], angle) for im, angle in zip(x, angles)
-                ], dtype=t.float).reshape(-1, 1, 28, 28)
-                if normalize:
-                    rot_x = (rot_x - 0.1307) / 0.3081
-
-                theta = model.localization[0](model.pre_stn[0](rot_x.to(device))).cpu()
-
-                rotated_angles = np.append(rotated_angles, angles)
-                labels = np.append(labels, y)
-
-                if all_transformations:
-                    angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
-                    predicted_angles = np.append(predicted_angles, angle)
-                    shears = np.append(shears, shear)
-                    scale_xs = np.append(scale_xs, sx)
-                    scale_ys = np.append(scale_ys, sy)
-                    dets = np.append(dets, det)
-                else:
-                    predicted_angles = np.append(predicted_angles, angle_from_matrix(theta))
-
-                # # DEBUGGING
-                # plt.imshow(x[0,0])
-                # plt.colorbar()
-                # plt.figure()
-                # plt.imshow(rot_x[0,0])
-                # plt.colorbar()
-                # plt.figure()
-                # plt.imshow(model.stn(theta, rot_x)[0,0])
-                # plt.colorbar()
-                # plt.show()
-                # print('rotated', angles[0])
-                # print('predicted', angle_from_matrix(theta)[0], flush=True)
-                # print('theta', theta[0])
-                # raise SystemExit()
-
-    variance = 0
-    for i in range(10):
-        indices = labels==i
-        rot_by_label.append(rotated_angles[indices])
-        pred_by_label.append(predicted_angles[indices])
-
-        s = (sum(rot_by_label[i]) + sum(pred_by_label[i]))/len(rot_by_label[i])
-        variance += sum([(r+p - s)**2 for r,p in zip(rot_by_label[i],pred_by_label[i])])
-
-        if all_transformations:
-            shear_by_label.append(shears[indices])
-            sx_by_label.append(scale_xs[indices])
-            sy_by_label.append(scale_ys[indices])
-            det_by_label.append(dets[indices])
-
-    print('Standard deviation', np.sqrt(variance / (epochs * 10000)))
-
-    if plot == 'sep': # plot all digits separately
-        assert not save_path, "Haven't implemented saving of more than one image"
-        for i in range(10):
-            print('Plotting label', i)
-            plot_angles(rot_by_label[i], pred_by_label[i])
-
-            if all_transformations:
-                plot_angles(rot_by_label[i], 100 * shear_by_label[i])
-                plot_angles(rot_by_label[i], 50 * sx_by_label[i])
-                plot_angles(rot_by_label[i], 50 * sy_by_label[i])
-                # plt.hist(shear_by_label[i], 50, range=(-1.25, 1.25))
-                # plt.figure()
-                # plt.hist(sx_by_label[i], 50, range=(0.5, 2.5))
-                # plt.figure()
-                # plt.hist(sy_by_label[i], 50, range=(0.5, 2.5))
-                # plt.show()
-
-    if plot == 'all': # plot all data at once
-        plot_angles(rotated_angles, predicted_angles, save_path=save_path, title=title)
-        
-        if all_transformations:
-            assert not save_path, "Haven't implemented saving of more than one image"
-            plot_angles(rotated_angles, 100 * shears)
-            plot_angles(rotated_angles, 50 * scale_xs)
-            plot_angles(rotated_angles, 50 * scale_ys)
-
-
-    if all_transformations:
-        return rot_by_label, pred_by_label, shear_by_label, sx_by_label, sy_by_label, det_by_label
-    return rot_by_label, pred_by_label
-
-
-def distance_from_matrix(thetas):
-    thetas = thetas.view((-1,2,3))
-    # distances = np.array([
-    #     np.linalg.solve(theta[:,0:2], theta[:,2]) for theta in thetas
-    # ])
-    return np.array(thetas[:,:,2]) * np.array([-1, 1]) * 30
-    # This is probably wrong for translations beyond the third layer.
-    # Is negated twice because the digits are transformed in the reverse
-    # of predicted transform, and because the y-axis is inverted.
-
-def plot_distance(tran, pred):
+def plot_distance(tran, pred, save_path='', title=''):
+    assert title == '', "Not implemented yet"
     heatmap, xedges, yedges = np.histogram2d(
         tran[:,0], pred[:,0], bins=32, range=[[-16,16],[-16,16]])
     extent = [-16, 16, -16, 16]
     plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.title('x')
+
     plt.figure()
 
     heatmap, xedges, yedges = np.histogram2d(
         tran[:,1], pred[:,1], bins=32, range=[[-16,16],[-16,16]])
     extent = [-16, 16, -16, 16]
     plt.imshow(heatmap.T, extent=extent, origin='lower')
+    plt.title('y')
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
     plt.show()
 
-def translation_statistics(model=0, plot=True, di=None, all_transformations=False):
-    global untranslated_test
+def plot_scale(logscale, pred, save_path='', title=''):
+    # blues, reds = get_cmap('Blues'), get_cmap('Reds')
+    # blues._init()
+    # blues._lut[:,-1] = np.linspace(0, 0.5, blues.N+3)
+    # reds._init()
+    # reds._lut[:,-1] = np.linspace(0, 0.5, reds.N+3)
+
+    heatmap1, xedges, yedges = np.histogram2d(
+        logscale, np.log2(pred[:,0]), bins=50, range=[[-1.5,2.5],[-1.5,2.5]])
+    # extent = [-1.5,2.5,-1.5,2.5]
+    # plt.imshow(heatmap.T, extent=extent, origin='lower', cmap=blues)
+    # plt.title('x')
+    # plt.figure()
+
+    heatmap2, xedges, yedges = np.histogram2d(
+        logscale, np.log2(pred[:,1]), bins=50, range=[[-1.5,2.5],[-1.5,2.5]])
+    extent = [-1.5,2.5,-1.5,2.5]
+    # plt.imshow(heatmap.T, extent=extent, origin='lower', cmap=reds)
+
+    rgb = np.stack([heatmap1.T, heatmap2.T, np.mean([heatmap1.T, heatmap2.T],axis=0)], axis=-1)
+    rgb = (np.ones_like(rgb) - rgb / np.max(rgb))
+    plt.imshow(rgb, extent=extent, origin='lower')
+
+    plt.xticks([-1, 0, 1, 2], ['0.5', '1', '2', '4'])
+    plt.yticks([-1, 0, 1, 2], ['0.5', '1', '2', '4'])
+    plt.title(title)
+
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
+    plt.show()
+
+
+
+def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
+                              normalize=None, epochs=1, save_path='', title=''):
+    global untransformed_test
+
+    assert transform in ['rotate', 'translate', 'scale']
+
     if type(model) == int:
         model = get_model(model, di=di)
-        _, untranslated_test = data.mnist(rotate=False, normalize=False, translate=False)
-    elif 'untranslated_test' not in globals():
-        _, untranslated_test = data.mnist(rotate=False, normalize=False, translate=False)
+        _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
+    elif 'untransformed_test' not in globals():
+        _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
 
     device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
-    noise = data.MNIST_noise()
-
-    translated_distance = np.zeros((0,2))
-    predicted_distance = np.zeros((0,2))
+    transformation = np.zeros((0,2) if transform == 'translate' else (0,1))
     tran_by_label = []
-    pred_by_label = []
+
+    angles = np.array([])
+    distances = np.zeros((0,2))
+    scales = np.zeros((0,2))
+    dets = np.array([])
+    shears = np.array([])
+    angle_by_label = []
+    distance_by_label = []
+    scale_by_label = []
+    det_by_label = []
+    shear_by_label = []
 
     labels = np.array([])
 
-    if all_transformations:
-        angles = np.array([])
-        shears = np.array([])
-        scale_xs = np.array([])
-        scale_ys = np.array([])
-        dets = np.array([])
-        angle_by_label = []
-        shear_by_label = []
-        sx_by_label = []
-        sy_by_label = []
-        det_by_label = []
-
     with t.no_grad():
         model.eval()
+        if transform == 'translate':
+            noise = data.MNIST_noise(60)
+        elif transform == 'scale':
+            noise = data.MNIST_noise(112)
+        for epoch in range(epochs):
+            for x, y in untransformed_test:
+                if transform == 'rotate':
+                    angle = np.random.uniform(-90, 90, x.shape[0])
+                    transformation = np.append(transformation, angle)
+                    transformed = t.tensor([
+                        rotate(im[0], a) for im, a in zip(x, angle)
+                    ], dtype=t.float).reshape(-1, 1, 28, 28)
+                    if normalize or normalize is None:
+                        transformed = (transformed - 0.1307) / 0.3081
 
-        for x, y in untranslated_test:
-            distance = np.random.randint(-16, 17, (x.shape[0], 2))
-            translated = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
-            for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
-                translated[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
-                translated[i] = noise(translated[i])
+                elif transform == 'translate':
+                    distance = np.random.randint(-16, 17, (x.shape[0], 2))
+                    transformation = np.append(transformation, distance, axis=0)
+                    transformed = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
+                    for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
+                        transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
+                        transformed[i] = noise(transformed[i])
+                    if normalize is True or (normalize is None and d['normalize']):
+                        transformed = (transformed - 0.0363) / 0.1870
 
-            if 'normalize' not in d:
-                print('Assuming no normalization.')
-            elif d['normalize']:
-                translated = (translated - 0.0363) / 0.1870
-            
-            theta = model.localization[0](model.pre_stn[0](translated.to(device))).cpu()
+                elif transform == 'scale':
+                    logscale = np.random.uniform(-1, 2, x.shape[0])
+                    transformation = np.append(transformation, logscale)
+                    scale = np.power(2, logscale)
+                    transformed = F.pad(x, (42,42,42,42))
+                    for i,(im, s) in enumerate(zip(transformed, scale)):
+                        transformed[i] = tvF.to_tensor(tvF.affine(
+                            tvF.to_pil_image(im),
+                            angle=0, translate=(0,0), shear=0, scale = s,
+                            resample = PIL.Image.BILINEAR, fillcolor = 0))
+                        transformed[i] = noise(transformed[i])
 
-            translated_distance = np.append(translated_distance, distance, axis=0)
-            predicted_distance = np.append(
-                predicted_distance, distance_from_matrix(theta), axis=0)
-
-            labels = np.append(labels, y)
-
-            if all_transformations:
+                theta = model.localization[0](model.pre_stn[0](transformed.to(device))).cpu()
                 angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
-                angles = np.append(angles, angle)
-                shears = np.append(shears, shear)
-                scale_xs = np.append(scale_xs, sx)
-                scale_ys = np.append(scale_ys, sy)
-                dets = np.append(dets, det)
+                scale = np.stack((sx, sy), axis=1)
+                distance = distance_from_matrix(theta)
 
-            # # DEBUGGING
-            # plt.imshow(x[0,0])
-            # plt.figure()
-            # plt.imshow(translated[0,0])
-            # plt.figure()
-            # plt.imshow(model.stn(theta, translated)[0,0])
-            # plt.show()
-            # print('translated', distance[0])
-            # print('predicted', distance_from_matrix(theta)[0], flush=True)
-            # raise SystemExit()
+                angles = np.append(angles, angle)
+                distances = np.append(distances, distance, axis=0)
+                scales = np.append(scales, scale, axis=0)
+                dets = np.append(dets, det)
+                shears = np.append(shears, shear)
+
+                labels = np.append(labels, y)
 
     variance = 0
     for i in range(10):
         indices = labels==i
-        tran_by_label.append(translated_distance[indices,:])
-        pred_by_label.append(predicted_distance[indices,:])
+        tran_by_label.append(transformation[indices])
+        angle_by_label.append(angles[indices])
+        distance_by_label.append(distances[indices])
+        scale_by_label.append(scales[indices])
+        det_by_label.append(dets[indices])
+        shear_by_label.append(shears[indices])
+        
+        transformations = tran_by_label[i]
+        if transform == 'rotate':
+            predictions = angle_by_label[i]
+        elif transform == 'translate':
+            predictions = distance_by_label[i]
+        elif transform == 'scale':
+            predictions = np.log2(scale_by_label[i])
+        s = (sum(transformations) + sum(predictions)) / len(transformations)
+        variance += sum([np.linalg.norm(t+p - s)**2 for t,p in zip(transformations,predictions)])
 
-        s = (sum(tran_by_label[i]) + sum(pred_by_label[i]))/len(tran_by_label[i])
-        variance += sum([np.linalg.norm(t+p - s) for t,p in zip(tran_by_label[i],pred_by_label[i])])
 
-        if all_transformations:
-            angle_by_label.append(angles[indices])
-            shear_by_label.append(shears[indices])
-            sx_by_label.append(scale_xs[indices])
-            sy_by_label.append(scale_ys[indices])
-            det_by_label.append(dets[indices])
-
-    print('Standard deviation', np.sqrt(variance / 10000))
+    print('Standard deviation', np.sqrt(variance / (epochs * 10000)))
 
     if plot:
-        plot_distance(translated_distance, predicted_distance)
+        if transform == 'rotate':
+            plot_angles(transformation, angles, save_path=save_path, title=title)
+        elif transform == 'translate':
+            plot_distance(transformation, distances, save_path=save_path, title=title)
+        else:
+            plot_scale(transformation, scales, save_path=save_path, title=title)
 
-    if all_transformations:
-        return tran_by_label, pred_by_label, angle_by_label, shear_by_label, sx_by_label, sy_by_label, det_by_label
-    return tran_by_label, pred_by_label
+    return tran_by_label, angle_by_label, distance_by_label, scale_by_label, det_by_label, shear_by_label
+
+
 
 def average_n(res, n):
     for run in res:
