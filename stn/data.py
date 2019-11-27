@@ -18,14 +18,15 @@ class MNIST_noise:
     taking 6 random 6x6 crops of mnist images and adding them to random
     places in the image.
     """
-    def __init__(self):
+    def __init__(self, imsize=60):
+        padding = (imsize-6) // 2
         self.data = tv.datasets.MNIST(
             root='data/cache', train=True, download=True,
         )
         self.transform = tv.transforms.Compose([
             tv.transforms.RandomCrop(6),
-            tv.transforms.Pad(27),
-            tv.transforms.RandomAffine(0,translate=(27/60,27/60)),
+            tv.transforms.Pad(padding),
+            tv.transforms.RandomAffine(0,translate=(padding/imsize,padding/imsize)),
             tv.transforms.ToTensor()
         ])
     
@@ -66,7 +67,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             tv.transforms.Pad(16), # (60-28)/2 = 16
             tv.transforms.RandomAffine(degrees=0, translate=(16/60,16/60)),
             tv.transforms.ToTensor(),
-            MNIST_noise(),
+            MNIST_noise(60),
         ]
         if normalize:
             transforms.append(tv.transforms.Normalize((0.0363,), (0.1870,)))
@@ -76,6 +77,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             tv.transforms.Pad(3*28//2),
             RandomScale(-1, 2),
             tv.transforms.ToTensor(),
+            MNIST_noise(112)
         ]
     else:
         transforms = [tv.transforms.ToTensor()]
