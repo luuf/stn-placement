@@ -348,7 +348,7 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-        if epoch % 50 == 0 and localization_class:
+        if epoch % 50 == 0 and localization_class and args.dataset in ['translate', 'mnist']:
             if args.dataset == 'translate':
                 res = eval.translation_statistics(
                     model, plot=False, all_transformations=True)
@@ -374,7 +374,7 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
-    if localization_class:
+    if localization_class and args.dataset in ['translate', 'mnist']:
         if args.dataset == 'translate':
             res = eval.translation_statistics(
                 model, plot=False, all_transformations=True)
