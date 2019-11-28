@@ -19,8 +19,9 @@ class MNIST_noise:
     taking 6 random 6x6 crops of mnist images and adding them to random
     places in the image.
     """
-    def __init__(self, imsize=60):
-        self.maxindex = imsize-6
+    def __init__(self, imsize=60, scale=False):
+        self.imsize = imsize
+        self.scale = scale
         # padding = (imsize-6) // 2
         transform = tv.transforms.Compose([
             tv.transforms.RandomCrop(6),
@@ -40,10 +41,23 @@ class MNIST_noise:
         except StopIteration:
             self.dataiter = iter(self.data)
             noise = next(self.dataiter)[0]
-        imloc = np.random.randint(0,self.maxindex,(6,2))
-        for im,(ix,iy) in zip(noise,imloc):
-            img[:, ix:ix+6, iy:iy+6] += im
-            t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+        if self.scale:
+            imloc = np.random.randint(2,self.imsize-2,(6,2))
+            sizes = np.random.randint(1, 10, 6)
+            for i,((ix,iy),s) in enumerate(zip(imloc,sizes)):
+                s = min(s, self.imsize-max(ix,iy), min(ix,iy))
+                loc = img[:, ix-s:ix+s, iy-s:iy+s]
+                # print(t.nn.functional.interpolate(noise[i:i+1], size=(1,1,2*s,2*s), mode='bilinear')[0])
+                loc += t.nn.functional.interpolate(noise[i:i+1], size=(2*s,2*s), mode='bilinear')[0]
+                t.clamp(loc, max=1, out=loc)
+                # img[:, ix:ix+6, iy:iy+6] += im
+                # t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+        else:
+            imloc = np.random.randint(0,self.imsize-6,(6,2))
+            for im,(ix,iy) in zip(noise,imloc):
+                img[:, ix:ix+6, iy:iy+6] += im
+                t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+            
         return img
 
 class RandomScale:
@@ -87,7 +101,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             tv.transforms.Pad(3*28//2),
             RandomScale(-1, 2),
             tv.transforms.ToTensor(),
-            MNIST_noise(112)
+            MNIST_noise(112, scale=True)
         ]
     else:
         transforms = [tv.transforms.ToTensor()]
