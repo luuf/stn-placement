@@ -2,6 +2,7 @@
 import numpy as np
 import torch as t
 import torchvision as tv
+import torchvision.transforms.functional as tvF
 import pandas as pd
 from skimage import io
 import os
@@ -22,22 +23,31 @@ class MNIST_noise:
     places in the image.
     """
     def __init__(self, imsize=60):
-        padding = (imsize-6) // 2
-        self.data = tv.datasets.MNIST(
-            root=mnist_root, train=True, download=True,
-        )
-        self.transform = tv.transforms.Compose([
+        self.maxindex = imsize-6
+        # padding = (imsize-6) // 2
+        transform = tv.transforms.Compose([
             tv.transforms.RandomCrop(6),
-            tv.transforms.Pad(padding),
-            tv.transforms.RandomAffine(0,translate=(padding/imsize,padding/imsize)),
+            # tv.transforms.Pad(padding),
+            # tv.transforms.RandomAffine(0,translate=(padding/imsize,padding/imsize)),
             tv.transforms.ToTensor()
         ])
+        self.data = t.utils.data.DataLoader(
+            tv.datasets.MNIST(
+                root=mnist_root, train=True, download=True, transform=transform),
+            batch_size=6, shuffle=True, num_workers=0, drop_last=True)
+        self.dataiter = iter(self.data)
     
     def __call__(self, img):
-        indices = np.random.randint(0,60000,6)
-        for i in indices:
-            img += self.transform(self.data[i][0])
-        return t.clamp(img, max=1)
+        try:
+            noise = next(self.dataiter)[0]
+        except StopIteration:
+            self.dataiter = iter(self.data)
+            noise = next(self.dataiter)[0]
+        imloc = np.random.randint(0,self.maxindex,(6,2))
+        for im,(ix,iy) in zip(noise,imloc):
+            img[:, ix:ix+6, iy:iy+6] += im
+            t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+        return img
 
 class RandomScale:
     def __init__(self, loglow, loghigh):
@@ -45,7 +55,7 @@ class RandomScale:
         self.loghigh = loghigh
 
     def __call__(self, img):
-        return tv.transforms.functional.affine(
+        return tvF.affine(
             img, angle=0, translate=(0,0), shear=0,
             scale = 2**(np.random.uniform(self.loglow, self.loghigh)),
             resample = PIL.Image.BILINEAR,
