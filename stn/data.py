@@ -31,7 +31,7 @@ class MNIST_noise:
         self.data = t.utils.data.DataLoader(
             tv.datasets.MNIST(
                 root='data/cache', train=True, download=True, transform=transform),
-            batch_size=6, shuffle=True, num_workers=1, drop_last=True)
+            batch_size=6, shuffle=True, num_workers=0, drop_last=True)
         self.dataiter = iter(self.data)
     
     def __call__(self, img):
