@@ -99,14 +99,17 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         if normalize:
             transforms.append(tv.transforms.Normalize((0.0363,), (0.1870,)))
             # approximate numbers derived from the transformation process
+            # empirically, this should actually be ((0.0394,), (0.1798))
     elif scale:
         transforms = [
             tv.transforms.Pad(3*28//2),
             RandomScale(-1, 2),
             tv.transforms.ToTensor(),
             MNIST_noise(112, scale=True),
-            tv.transforms.normalize(0.0414, 0.1751)
         ]
+        if normalize:
+            transforms.append(tv.transforms.normalize(0.0414, 0.1751))
+            
     else:
         transforms = [tv.transforms.ToTensor()]
         if rotate:
@@ -114,6 +117,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         if normalize:
             transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,)))
             # subtracts first number and divides with second
+            # empirically, this should actually be ((0.1302,), (0.2892))
     train_loader = t.utils.data.DataLoader(
         tv.datasets.MNIST(
             root=mnist_root, train=True, download=True,
@@ -138,8 +142,7 @@ def translated_mnist(rotate=False,normalize=False, batch_size=256):
 def scaled_mnist(rotate=False, normalize=False, batch_size=256):
     "Helper function to call mnist with certain variables"
     assert rotate is False
-    assert normalize is False, "Have not implemented normalization yet"
-    return mnist(rotate=False, normalize=False, translate=False, scale=True, batch_size=batch_size)
+    return mnist(rotate=False, normalize=normalize, translate=False, scale=True, batch_size=batch_size)
 
 
 def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):

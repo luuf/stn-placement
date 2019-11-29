@@ -12,7 +12,7 @@ from skimage.transform import rotate
 from os import path
 from functools import partial
 
-directory, d, train_loader, test_loader, untransformed_test = None, None, None, None, None
+directory, d, train_loader, test_loader  = None, None, None, None
 
 #%% Functions
 def load_data(data_dir, normalize=True):
@@ -731,7 +731,9 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                             tvF.to_pil_image(im),
                             angle=0, translate=(0,0), shear=0, scale = s,
                             resample = PIL.Image.BILINEAR, fillcolor = 0))
-                        transformed[i] = noise(transformed[i])
+                        # transformed[i] = noise(transformed[i])
+                    if normalize is True or (normalize is None and d['normalize']):
+                        transformed = (transformed - 0.0414) / 0.1751
 
                 theta = model.localization[0](model.pre_stn[0](transformed.to(device))).cpu()
                 angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
