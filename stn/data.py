@@ -104,7 +104,8 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             tv.transforms.Pad(3*28//2),
             RandomScale(-1, 2),
             tv.transforms.ToTensor(),
-            MNIST_noise(112, scale=True)
+            MNIST_noise(112, scale=True),
+            tv.transforms.normalize(0.0414, 0.1751)
         ]
     else:
         transforms = [tv.transforms.ToTensor()]
