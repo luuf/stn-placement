@@ -352,9 +352,8 @@ for run in range(args.runs):
             res = eval.transformation_statistics(
                 model, plot=False, normalize=args.normalize,
                 transform = 'rotate' if args.rotate else args.dataset)
-            sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
-            sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
-            print('x-scaling', sx, 'y-scaling', sy)
+            scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+            print('x-scaling', scale[0], 'y-scaling', scale[1])
 
     total_time = time.time() - start_time
     print('Time', total_time)
@@ -375,9 +374,8 @@ for run in range(args.runs):
         res = eval.transformation_statistics(
             model, plot=False, normalize=args.normalize,
             transform = 'rotate' if args.rotate else args.dataset)
-        sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
-        sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
-        print('x-scaling', sx, 'y-scaling', sy)
+        scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+        print('x-scaling', scale[0], 'y-scaling', scale[1])
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
