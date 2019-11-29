@@ -108,7 +108,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             MNIST_noise(112, scale=True),
         ]
         if normalize:
-            transforms.append(tv.transforms.normalize(0.0414, 0.1751))
+            transforms.append(tv.transforms.Normalize((0.0414,), (0.1751,)))
             
     else:
         transforms = [tv.transforms.ToTensor()]
