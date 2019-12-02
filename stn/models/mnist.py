@@ -218,6 +218,25 @@ class CNN_mp(Localization):
         x = F.relu(self.l(x.view(x.size(0), -1)))
         return x
 
+class CNNCNN_mp(Localization):
+    default_parameters = [64,20,20,20]
+    
+    def init_model(self, in_shape):
+        self.c0 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(9,9))
+        self.c1 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
+        self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.c2 = nn.Conv2d(self.param[1], self.param[2], kernel_size=(5,5))
+        # second mp
+        side = (((in_shape[-1] - 8)//2 - 4)//2 - 4)//2
+        self.l = nn.Linear(self.param[2] * side**2, self.param[3])
+
+    def model(self, x):
+        x = self.mp(F.relu(self.c0(x)))
+        x = self.mp(F.relu(self.c1(x)))
+        x = self.mp(F.relu(self.c2(x)))
+        x = F.relu(self.l(x.view(x.size(0), -1)))
+        return x
+
 
 class CNN_localization_batchnorm(Localization):
     default_parameters = [20,20,20]
