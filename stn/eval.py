@@ -345,8 +345,6 @@ def get_gradients(model=0, di=None, version='final'):
             print()
 
 
-
-
 def get_rotated_images(model=0, di=None, normalization=True,
                        tall=False, save_path='', title=''):
     if type(model) == int:
@@ -414,55 +412,6 @@ def get_rotated_images(model=0, di=None, normalization=True,
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
 
-def compare_rotations(di1, di2, model1=0, model2=0, angles=[], normalization=True,
-                      ylabels = ['','',''], save_path='', title=''):
-    model = get_model(model1, di=di1)
-    batch = next(iter(untransformed_test))[0][:1]
-
-    if len(angles) == 0:
-        angles = np.random.uniform(-90, 90, 3)
-    assert len(angles) == 3
-
-    rot_x = t.tensor([
-        rotate(batch[i // 3][0], angle) for i, angle in enumerate(angles)
-    ], dtype=t.float).reshape(-1, 1, 28, 28)
-    if normalization:
-        rot_x = (rot_x - 0.1307) / 0.3081
-
-    model.eval()
-    theta = model.localization[0](model.pre_stn[0](rot_x))
-    stn1 = model.stn(theta, rot_x)
-  
-    model = get_model(model2, di=di2)
-    model.eval()
-    theta = model.localization[0](model.pre_stn[0](rot_x))
-    stn2 = model.stn(theta, rot_x)
-
-    fig, axs = plt.subplots(3, 3, sharex='col', sharey='row', figsize=(3,3.04),
-                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
-    plt.gray()
-    for i in range(3):
-        axs[0,i].imshow(rot_x[i].detach().numpy()[0])
-        axs[1,i].imshow(stn1[i].detach().numpy()[0])
-        axs[2,i].imshow(stn2[i].detach().numpy()[0])
-        axs[0,i].set_xticks([])
-        axs[0,i].set_yticks([])
-        axs[1,i].set_xticks([])
-        axs[1,i].set_yticks([])
-        axs[2,i].set_xticks([])
-        axs[2,i].set_yticks([])
-
-    for ax,y in zip(axs[:,0], ylabels):
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_ylabel(y)
-    
-    fig.suptitle(title)
-    if save_path:
-        plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
-    else:
-        plt.show()
-
 
 def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     n = 5
@@ -501,6 +450,82 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
 
+
+def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', param=[],
+        normalize=None, ylabels=['','',''], save_path='', title=''):
+    assert transform in ['rotate','translate','scale']
+    model = get_model(model1, di=di1)
+    im = next(iter(untransformed_test))[0][:1]
+
+    if transform == 'rotate':
+        if len(param) == 0:
+            param = np.random.uniform(-90,90,3)
+        transformed = t.tensor([
+            rotate(im[0][0], angle) for angle in param
+        ], dtype=t.float).reshape(-1, 1, 28, 28)
+        if normalize or normalize is None:
+            transformed = (transformed - 0.1307) / 0.3081
+    elif transform == 'translate':
+        if len(param) == 0:
+            param = np.random.randint(-16,17,(3,2))
+        noise = data.MNIST_noise(60)
+        transformed = t.zeros(3, 1, 60, 60, dtype=t.float)
+        for i, (xd, yd) in enumerate(param):
+            transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
+            transformed[i] = noise(transformed[i])
+        if normalize or (normalize is None and d.get('normalize')):
+            transformed = (transformed - 0.0363) / 0.1870
+    elif transform == 'scale':
+        if len(param) == 0:
+            param = np.random.uniform(-1,2,3)
+        scale = np.power(2, param)
+        noise = data.MNIST_noise(112, scale=True)
+        transformed = F.pad(im, (42,42,42,42)).repeat(3,1,1,1)
+        for i,s in enumerate(scale):
+            transformed[i] = tvF.to_tensor(tvF.affine(
+                tvF.to_pil_image(transformed[i]),
+                angle=0, translate=(0,0), shear=0, scale = s,
+                resample = PIL.Image.BILINEAR, fillcolor = 0))
+            transformed[i] = noise(transformed[i])
+        if d['normalize']:
+            transformed = (transformed - 0.0414) / 0.1751
+
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](transformed))
+    stn1 = model.stn(theta, transformed)
+
+    model = get_model(model2, di=di2)
+    model.eval()
+    theta = model.localization[0](model.pre_stn[0](transformed))
+    stn2 = model.stn(theta, transformed)
+
+    fig, axs = plt.subplots(3, 3, figsize=(3,3.04), # sharex, sharey not necessary
+                gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    plt.gray()
+    for i in range(3):
+        axs[0,i].imshow(transformed[i].detach().numpy()[0])
+        axs[1,i].imshow(stn1[i].detach().numpy()[0])
+        axs[2,i].imshow(stn2[i].detach().numpy()[0])
+        axs[0,i].set_xticks([])
+        axs[0,i].set_yticks([])
+        axs[1,i].set_xticks([])
+        axs[1,i].set_yticks([])
+        axs[2,i].set_xticks([])
+        axs[2,i].set_yticks([])
+
+    for ax,y in zip(axs[:,0], ylabels):
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_ylabel(y)
+    
+    fig.suptitle(title)
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
+    else:
+        plt.show()
+
+
+### STATISTICS ###
 
 def angle_from_matrix(thetas, all_transformations=False):
     # V1: Inverts in order to get parameters for the number's
@@ -726,9 +751,9 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                     transformation = np.append(transformation, logscale)
                     scale = np.power(2, logscale)
                     transformed = F.pad(x, (42,42,42,42))
-                    for i,(im, s) in enumerate(zip(transformed, scale)):
+                    for i,s in enumerate(scale):
                         transformed[i] = tvF.to_tensor(tvF.affine(
-                            tvF.to_pil_image(im),
+                            tvF.to_pil_image(transformed[i]),
                             angle=0, translate=(0,0), shear=0, scale = s,
                             resample = PIL.Image.BILINEAR, fillcolor = 0))
                         transformed[i] = noise(transformed[i])
@@ -790,90 +815,6 @@ def average_n(res, n):
             s += sum(label)
         s /= len(untransformed_test.dataset)
         print(s)
-
-def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=True,
-                        ylabels = ['','',''], save_path='', title=''):
-    load_data(di1)
-    im = next(iter(untransformed_test))[0][:1]
-
-    noise = data.MNIST_noise()
-    distance = np.random.randint(-16, 17, (3, 2))
-    translated = t.zeros(3, 1, 60, 60, dtype=t.float)
-    for i, (xd, yd) in enumerate(distance):
-        translated[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
-        translated[i] = noise(translated[i])
-
-    if 'normalize' not in d:
-        print('Assuming no normalization.')
-    elif d['normalize']:
-        translated = (translated - 0.0363) / 0.1870
-            
-    model = get_model(model1)
-    model.eval()
-    theta = model.localization[0](model.pre_stn[0](translated))
-    stn1 = model.stn(theta, translated)
-  
-    load_data(di2)
-    model = get_model(model2)
-    model.eval()
-    theta = model.localization[0](model.pre_stn[0](translated))
-    stn2 = model.stn(theta, translated)
-
-    fig, axs = plt.subplots(3, 3,  figsize=(3,3.04), # sharex='col', sharey='row',
-                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
-    plt.gray()
-    for i in range(3):
-        axs[0,i].imshow(translated[i].detach().numpy()[0])
-        axs[1,i].imshow(stn1[i].detach().numpy()[0])
-        axs[2,i].imshow(stn2[i].detach().numpy()[0])
-        axs[0,i].set_xticks([])
-        axs[0,i].set_yticks([])
-        axs[1,i].set_xticks([])
-        axs[1,i].set_yticks([])
-        axs[2,i].set_xticks([])
-        axs[2,i].set_yticks([])
-
-    for ax,y in zip(axs[:,0], ylabels):
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_ylabel(y)
-    
-    fig.suptitle(title)
-    if save_path:
-        plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
-    else:
-        plt.show()
-
-
-def compare_transformation(di1, d2, model1=0, model2=0, transform='rotate', param=[],
-        normalize=None, ylabels=['','',''], save_path='', title=''):
-        assert transform in ['rotate','transform','scale']
-        model = get_model(model1, di=di1)
-        im = next(iter(untransformed_test))[0][:1]
-
-        if transform == 'rotate':
-            if len(param) == 0:
-                param = np.random.uniform(-90,90,3)
-            transformed = t.tensor([
-                rotate(im[0][0], angle) for angle in param
-            ], dtype=t.float).reshape(-1, 1, 28, 28)
-            if normalize or normalize is None:
-                rot_x = (rot_x - 0.1307) / 0.3081
-        elif transform == 'translate':
-            if len(param) == 0:
-                param = np.random.randint(-16,17,(3,2))
-            noise = data.MNIST_noise(60)
-            transformed = t.zeros(3, 1, 60, 60, dtype=t.float)
-            for i, (xd, yd) in enumerate(param):
-                transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
-                transformed[i] = noise(transformed[i])
-            if normalize or (normalize is None and d.get('normalize')):
-                translated = (translated - 0.0363) / 0.1870
-        elif transform == 'scale':
-            if len(param) == 0:
-                param = np.np.random.uniform(-1,2)
-            noise = data.MNIST_noise(112, scale=True)
-
 
 
 def plot_results(folder, n_prefixes, *args):
