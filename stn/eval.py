@@ -699,7 +699,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
         if transform == 'translate':
             noise = data.MNIST_noise(60)
         elif transform == 'scale':
-            noise = data.MNIST_noise(112)
+            noise = data.MNIST_noise(112, scale=True)
         for epoch in range(epochs):
             for x, y in untransformed_test:
                 if transform == 'rotate':
@@ -731,7 +731,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                             tvF.to_pil_image(im),
                             angle=0, translate=(0,0), shear=0, scale = s,
                             resample = PIL.Image.BILINEAR, fillcolor = 0))
-                        # transformed[i] = noise(transformed[i])
+                        transformed[i] = noise(transformed[i])
                     if normalize is True or (normalize is None and d['normalize']):
                         transformed = (transformed - 0.0414) / 0.1751
 
@@ -843,6 +843,37 @@ def compare_translation(di1, di2, model1=0, model2=0, angles=[], normalization=T
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     else:
         plt.show()
+
+
+def compare_transformation(di1, d2, model1=0, model2=0, transform='rotate', param=[],
+        normalize=None, ylabels=['','',''], save_path='', title=''):
+        assert transform in ['rotate','transform','scale']
+        model = get_model(model1, di=di1)
+        im = next(iter(untransformed_test))[0][:1]
+
+        if transform == 'rotate':
+            if len(param) == 0:
+                param = np.random.uniform(-90,90,3)
+            transformed = t.tensor([
+                rotate(im[0][0], angle) for angle in param
+            ], dtype=t.float).reshape(-1, 1, 28, 28)
+            if normalize or normalize is None:
+                rot_x = (rot_x - 0.1307) / 0.3081
+        elif transform == 'translate':
+            if len(param) == 0:
+                param = np.random.randint(-16,17,(3,2))
+            noise = data.MNIST_noise(60)
+            transformed = t.zeros(3, 1, 60, 60, dtype=t.float)
+            for i, (xd, yd) in enumerate(param):
+                transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
+                transformed[i] = noise(transformed[i])
+            if normalize or (normalize is None and d.get('normalize')):
+                translated = (translated - 0.0363) / 0.1870
+        elif transform == 'scale':
+            if len(param) == 0:
+                param = np.np.random.uniform(-1,2)
+            noise = data.MNIST_noise(112, scale=True)
+
 
 
 def plot_results(folder, n_prefixes, *args):

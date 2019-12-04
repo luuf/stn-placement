@@ -358,6 +358,15 @@ for run in range(args.runs):
     total_time = time.time() - start_time
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
+    print()
+
+    if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
+        res = eval.transformation_statistics(
+            model, plot=False, normalize=args.normalize, epochs=10,
+            transform = 'rotate' if args.rotate else args.dataset)
+        scale = sum(sum(res[-3][label]) for label in range(10)) / (10*len(test_loader.dataset))
+        print('x-scaling', scale[0], 'y-scaling', scale[1])
+        print()
 
     if args.dataset in ['mnist', 'translate', 'scale']:
         final_test_accuracy = sum(test()[1] for _ in range(10)) / 10
@@ -369,13 +378,6 @@ for run in range(args.runs):
     print()
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
-
-    if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
-        res = eval.transformation_statistics(
-            model, plot=False, normalize=args.normalize,
-            transform = 'rotate' if args.rotate else args.dataset)
-        scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
-        print('x-scaling', scale[0], 'y-scaling', scale[1])
 
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
