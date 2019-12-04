@@ -15,6 +15,9 @@ from functools import partial
 directory, d, train_loader, test_loader  = None, None, None, None
 
 #%% Functions
+
+### LOAD DATA AND MODELS ###
+
 def load_data(data_dir, normalize=True):
     global directory, d, train_loader, test_loader, untransformed_test
     directory = '../experiments/'+data_dir
@@ -78,6 +81,8 @@ def get_model(prefix, version='final', di=None, llr=False):
     return model
 
 
+### COMPUTE AND PRINT ACCURACY AND LOSS ###
+
 cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
 def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
     global test_loader
@@ -122,7 +127,6 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
     print('Average accuracy:', sum(accs) / runs)
     return losses, accs
 
-
 def running_mean(l, w):
     if w <= 0:
         return l
@@ -156,6 +160,36 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
         else:
             plt.plot(r, running_mean(history['train_acc'], window)[start:])
             plt.plot(r, running_mean(history['test_acc'], window)[start:])
+        plt.show()
+
+
+### VIEW TRANSFORMED IMAGES ###
+
+def test_stn(model=0, n=4, di=None, version='final'):
+    if type(model) == int:
+        model = get_model(model, di=di, version=version)
+    model.eval()
+
+    batch = next(iter(test_loader))[0][:n]
+    theta = model.localization[0](model.pre_stn[0](batch))
+    transformed_batch = model.stn(theta, batch)
+
+    minimum = t.min(batch)
+    maximum = t.max(batch)
+
+    for image,transformed in zip(batch, transformed_batch):
+        image = (image - minimum) / (maximum - minimum)
+        transformed = (transformed.detach() - minimum) / (maximum - minimum)
+        if image.shape[0] == 1:
+            image = image[0,:,:]
+            transformed = transformed[0,:,:]
+        else:
+            image = np.moveaxis(np.array(image),0,-1)
+            transformed = np.moveaxis(transformed.numpy(),0,-1)
+        plt.subplot(1,2,1)
+        plt.imshow(image)
+        plt.subplot(1,2,2)
+        plt.imshow(transformed)
         plt.show()
 
 def test_multi_stn(model=0, n=4, di=None, version='final'):
@@ -222,134 +256,11 @@ def test_multi_stn(model=0, n=4, di=None, version='final'):
     #         plt.imshow(image)
     # plt.show()
 
-def test_stn(model=0, n=4, di=None, version='final'):
-    if type(model) == int:
-        model = get_model(model, di=di, version=version)
-    model.eval()
 
-    batch = next(iter(test_loader))[0][:n]
-    theta = model.localization[0](model.pre_stn[0](batch))
-    transformed_batch = model.stn(theta, batch)
-
-    minimum = t.min(batch)
-    maximum = t.max(batch)
-
-    for image,transformed in zip(batch, transformed_batch):
-        image = (image - minimum) / (maximum - minimum)
-        transformed = (transformed.detach() - minimum) / (maximum - minimum)
-        if image.shape[0] == 1:
-            image = image[0,:,:]
-            transformed = transformed[0,:,:]
-        else:
-            image = np.moveaxis(np.array(image),0,-1)
-            transformed = np.moveaxis(transformed.numpy(),0,-1)
-        plt.subplot(1,2,1)
-        plt.imshow(image)
-        plt.subplot(1,2,2)
-        plt.imshow(transformed)
-        plt.show()
-
-
-def hook(x):
-    print('Shape', x.shape)
-    print('Median abs', t.median(t.abs(x)))
-    print('Max', t.max(x), 'Min', t.min(x))
-    summed = t.sum(x, dim=0)
-    print('Median sum', t.median(t.abs(summed)))
-    print('Max', t.max(summed), 'Min', t.min(summed))
-    print('Vector length', t.norm(summed.view(-1)))
-
-def module_hook(module, grad_input, grad_output):
-    print('module', module)
-    print('grad input', [i.shape for i in grad_input])
-    print('grad output', [o.shape for o in grad_output])
-
-def get_gradients(model=0, di=None, version='final'):
-    assert type(model) == int
-    if di is not None:
-        load_data(di)
-
-    input_image,y = next(iter(train_loader))
-
-    if d['loop']:
-        for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
-            model.train()
-            x = input_image
-            theta = t.eye(3)
-            for i,m in enumerate(model.loop_models):
-                loc_input = m(x)
-                # if x.requires_grad:
-                #     loc_input.register_hook(lambda a: print('loc input', hook(a), '\n'))
-                # model.localization[i].register_backward_hook(module_hook)
-                loc_output = model.localization[i](loc_input)
-                # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
-                mat = F.pad(loc_output, (0,3)).view((-1,3,3))
-                mat[:,2,2] = 1
-                theta = t.matmul(theta,mat)
-                x = model.stn(theta[:,0:2,:], input_image)
-                # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
-            x = m(x)
-            # x.register_hook(lambda a: print('final m', hook(a),'\n'))
-            x = model.final_layers(x)
-            # x.register_hook(lambda a: print('final layers', hook(a),'\n'))
-            output = model.output(x.view(x.size(0),-1))
-            # [out.register_hook(lambda a: print('output', hook(a),'\n')) for out in output]
-
-            assert path.dirname(d['dataset'])[-4:] == 'svhn'
-            loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
-            loss.backward()
-
-            print('\nGradients')
-            for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
-                print('Pre stn', i)
-                for p in m.parameters():
-                    print(p.grad.shape)
-                    print(t.norm(p.grad.view(-1)))
-                    print()
-
-                print('Localization', i)
-                for p in l.parameters():
-                    print(p.grad.shape)
-                    print(t.norm(p.grad.view(-1)))
-                    print()
-
-            print('Final layers')
-            for p in model.final_layers.parameters():
-                print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
-                print()
-    else:
-        model = get_model(model, version)
-        model.train()
-        output = model(input_image)
-        loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
-        loss.backward()
-
-        for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
-            print('Pre stn', i)
-            for p in m.parameters():
-                print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
-                print()
-
-            print('Localization', i)
-            for p in l.parameters():
-                print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
-                print()
-
-        print('Final layers')
-        for p in model.final_layers.parameters():
-            print(p.grad.shape)
-            print(t.norm(p.grad.view(-1)))
-            print()
-
-
-def get_rotated_images(model=0, di=None, normalization=True,
+def compare_all_labels(model=0, di=None, normalization=True,
                        tall=False, save_path='', title=''):
     if type(model) == int:
         model = get_model(model, di=di)
-
     model.eval()
 
     # _, unrotated_test = data.data_dict[d['dataset']](
@@ -381,7 +292,6 @@ def get_rotated_images(model=0, di=None, normalization=True,
 
     stn_x = model.stn(model.localization[0](model.pre_stn[0](rot_x)), rot_x)
     # only handles models with a single stn
-
     if tall:
         fig, axs = plt.subplots(10, 6, sharex='col', sharey='row', figsize=(6,10),
                                 gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
@@ -391,7 +301,6 @@ def get_rotated_images(model=0, di=None, normalization=True,
                 axs[j+1, i].imshow(stn_x[i + 3*j].detach().numpy()[0])
                 axs[j,i].axis(False)
                 axs[j+1,i].axis(False)
-
     else:
         fig, axs = plt.subplots(6, 10, sharex='col', sharey='row', figsize=(10,6),
                                 gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
@@ -405,7 +314,6 @@ def get_rotated_images(model=0, di=None, normalization=True,
     # for col, (r, s) in enumerate(zip(rot_x, stn_x)):
         # axs[0, col].imshow(r.detach().numpy()[0])
         # axs[1, col].imshow(s.detach().numpy()[0])
-
     if title:
         plt.title(title)
     if save_path:
@@ -449,7 +357,6 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
-
 
 def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', param=[],
         normalize=None, ylabels=['','',''], save_path='', title=''):
@@ -525,7 +432,7 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
         plt.show()
 
 
-### STATISTICS ###
+### TRANSFORMATION STATISTICS ###
 
 def angle_from_matrix(thetas, all_transformations=False):
     # V1: Inverts in order to get parameters for the number's
@@ -555,32 +462,6 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # of the predicted transform, because the y-axis is inverted,
     # # and because I use counter-clockwise as positive direction
 
-
-# def plot_everything(res, seperate=False):
-#     rot_by_label = res[0]
-#     angle_by_label = res[1]
-#     scale_by_label = res[3]
-#     shear_by_label = res[5]
-#     if seperate:
-#         for i in range(10):
-#             print('Plotting label', i)
-#             plot_angles(rot_by_label[i], angle_by_label[i])
-#             plot_angles(rot_by_label[i], 100 * shear_by_label[i])
-#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,0])
-#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,1])
-
-#             plt.hist(shear_by_label[i], 50, range=(-1.25, 1.25))
-#             plt.figure()
-#             plt.hist(scale_by_label[i][:,0], 50, range=(0.5, 2.5))
-#             plt.figure()
-#             plt.hist(scale_by_label[i][:,1], 50, range=(0.5, 2.5))
-#             plt.show()
-#     else:
-#         rotated_angles = np.concatenate(rot_by_label)
-#         plot_angles(rotated_angles, np.concatenate(angle_by_label), save_path=save_path, title=title)
-#         plot_angles(rotated_angles, 100 * np.concatenate(shear_by_label))
-#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,0])
-#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,1])
 
 def distance_from_matrix(thetas):
     thetas = thetas.view((-1,2,3))
@@ -636,6 +517,32 @@ def plot_angles(rot, pred, line='equation', save_path='', title='',
         plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
     plt.show()
 
+# def plot_everything(res, seperate=False):
+#     rot_by_label = res[0]
+#     angle_by_label = res[1]
+#     scale_by_label = res[3]
+#     shear_by_label = res[5]
+#     if seperate:
+#         for i in range(10):
+#             print('Plotting label', i)
+#             plot_angles(rot_by_label[i], angle_by_label[i])
+#             plot_angles(rot_by_label[i], 100 * shear_by_label[i])
+#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,0])
+#             plot_angles(rot_by_label[i], 50 * scale_by_label[i][:,1])
+
+#             plt.hist(shear_by_label[i], 50, range=(-1.25, 1.25))
+#             plt.figure()
+#             plt.hist(scale_by_label[i][:,0], 50, range=(0.5, 2.5))
+#             plt.figure()
+#             plt.hist(scale_by_label[i][:,1], 50, range=(0.5, 2.5))
+#             plt.show()
+#     else:
+#         rotated_angles = np.concatenate(rot_by_label)
+#         plot_angles(rotated_angles, np.concatenate(angle_by_label), save_path=save_path, title=title)
+#         plot_angles(rotated_angles, 100 * np.concatenate(shear_by_label))
+#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,0])
+#         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,1])
+
 def plot_distance(tran, pred, save_path='', title=''):
     assert title == '', "Not implemented yet"
     heatmap, xedges, yedges = np.histogram2d(
@@ -686,7 +593,6 @@ def plot_scale(logscale, pred, save_path='', title=''):
     if save_path:
         plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
     plt.show()
-
 
 
 def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
@@ -807,7 +713,6 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
     return tran_by_label, angle_by_label, distance_by_label, scale_by_label, det_by_label, shear_by_label
 
 
-
 def average_n(res, n):
     for run in res:
         s = 0
@@ -817,15 +722,98 @@ def average_n(res, n):
         print(s)
 
 
-def plot_results(folder, n_prefixes, *args):
-    for l in args:
-        accs = []
-        for d in l:
-            accs.append([])
-            for prefix in range(n_prefixes):
-                history = t.load(folder + d + '/' + str(prefix) + "history")
-                accs[-1].append(history['test_acc'][-1])
-            accs[-1].sort()
-            accs[-1] = accs[-1][n_prefixes // 2]
-        plt.plot(accs)
-    plt.show()
+### GRADIENT STATISTICS ###
+
+def hook(x):
+    print('Shape', x.shape)
+    print('Median abs', t.median(t.abs(x)))
+    print('Max', t.max(x), 'Min', t.min(x))
+    summed = t.sum(x, dim=0)
+    print('Median sum', t.median(t.abs(summed)))
+    print('Max', t.max(summed), 'Min', t.min(summed))
+    print('Vector length', t.norm(summed.view(-1)))
+
+def module_hook(module, grad_input, grad_output):
+    print('module', module)
+    print('grad input', [i.shape for i in grad_input])
+    print('grad output', [o.shape for o in grad_output])
+
+def get_gradients(model=0, di=None, version='final'):
+    assert type(model) == int
+    if di is not None:
+        load_data(di)
+
+    input_image,y = next(iter(train_loader))
+
+    if d['loop']:
+        for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
+            model.train()
+            x = input_image
+            theta = t.eye(3)
+            for i,m in enumerate(model.loop_models):
+                loc_input = m(x)
+                # if x.requires_grad:
+                #     loc_input.register_hook(lambda a: print('loc input', hook(a), '\n'))
+                # model.localization[i].register_backward_hook(module_hook)
+                loc_output = model.localization[i](loc_input)
+                # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
+                mat = F.pad(loc_output, (0,3)).view((-1,3,3))
+                mat[:,2,2] = 1
+                theta = t.matmul(theta,mat)
+                x = model.stn(theta[:,0:2,:], input_image)
+                # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
+            x = m(x)
+            # x.register_hook(lambda a: print('final m', hook(a),'\n'))
+            x = model.final_layers(x)
+            # x.register_hook(lambda a: print('final layers', hook(a),'\n'))
+            output = model.output(x.view(x.size(0),-1))
+            # [out.register_hook(lambda a: print('output', hook(a),'\n')) for out in output]
+
+            assert path.dirname(d['dataset'])[-4:] == 'svhn'
+            loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
+            loss.backward()
+
+            print('\nGradients')
+            for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
+                print('Pre stn', i)
+                for p in m.parameters():
+                    print(p.grad.shape)
+                    print(t.norm(p.grad.view(-1)))
+                    print()
+
+                print('Localization', i)
+                for p in l.parameters():
+                    print(p.grad.shape)
+                    print(t.norm(p.grad.view(-1)))
+                    print()
+
+            print('Final layers')
+            for p in model.final_layers.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+    else:
+        model = get_model(model, version)
+        model.train()
+        output = model(input_image)
+        loss = sum([F.cross_entropy(output[i],y[:,i]) for i in range(5)])
+        loss.backward()
+
+        for i,(l,m) in enumerate(zip(model.localization, model.pre_stn)):
+            print('Pre stn', i)
+            for p in m.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+
+            print('Localization', i)
+            for p in l.parameters():
+                print(p.grad.shape)
+                print(t.norm(p.grad.view(-1)))
+                print()
+
+        print('Final layers')
+        for p in model.final_layers.parameters():
+            print(p.grad.shape)
+            print(t.norm(p.grad.view(-1)))
+            print()
