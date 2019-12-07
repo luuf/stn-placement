@@ -359,7 +359,7 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     plt.show()
 
 def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', param=[],
-        normalize=None, ylabels=['','',''], save_path='', title=''):
+                           normalize=None, ylabels=['','',''], save_path='', title=''):
     assert transform in ['rotate','translate','scale']
     model = get_model(model1, di=di1)
     im = next(iter(untransformed_test))[0][:1]
