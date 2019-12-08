@@ -348,22 +348,27 @@ for run in range(args.runs):
                     history['train_loss'][epoch], history['train_acc'][epoch],
                     history['test_loss'][epoch], history['test_acc'][epoch],
             ))
-        if epoch % 50 == 0 and localization_class and args.dataset in ['translate', 'mnist']:
-            if args.dataset == 'translate':
-                res = eval.translation_statistics(
-                    model, plot=False, all_transformations=True)
-            elif args.rotate:
-                res = eval.rotation_statistics(
-                    model, plot=False, all_transformations=True, normalize=args.normalize)
-            sx = sum(sum(res[-2][label]) for label in range(10)) / len(test_loader.dataset)
-            sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
-            print('x-scaling', sx, 'y-scaling', sy)
+       if epoch % 50 == 0 and localization_class and args.dataset in ['mnist', 'translate', 'scale']:
+            res = eval.transformation_statistics(
+                model, plot=False, normalize=args.normalize,
+                transform = 'rotate' if args.rotate else args.dataset)
+            scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
+            print('x-scaling', scale[0], 'y-scaling', scale[1])
 
     total_time = time.time() - start_time
     print('Time', total_time)
     print('Time per epoch', total_time / epochs)
+    print()
 
-    if args.dataset in ['mnist', 'translate']:
+    if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
+        res = eval.transformation_statistics(
+            model, plot=False, normalize=args.normalize, epochs=10,
+            transform = 'rotate' if args.rotate else args.dataset)
+        scale = sum(sum(res[-3][label]) for label in range(10)) / (10*len(test_loader.dataset))
+        print('x-scaling', scale[0], 'y-scaling', scale[1])
+        print()
+
+    if args.dataset in ['mnist', 'translate', 'scale']:
         final_test_accuracy = sum(test()[1] for _ in range(10)) / 10
     else:
         final_test_accuracy = history['test_acc'][-1]
@@ -374,6 +379,7 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
+<<<<<<< HEAD
     if localization_class and args.dataset in ['translate', 'mnist']:
         if args.dataset == 'translate':
             res = eval.translation_statistics(
@@ -385,6 +391,8 @@ for run in range(args.runs):
         sy = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
         print('x-scaling', sx, 'y-scaling', sy)
 
+=======
+>>>>>>> ad2e1009fa90091c33c35e8c2617118ade00edcd
     t.save(model.state_dict(), directory + prefix + 'final')
     t.save(history, directory + prefix + 'history')
 

@@ -167,10 +167,11 @@ class Classifier(Modular_Model):
                 *self.pre_stn, self.final_layers
             ))
 
-        if data_tag in ['translate', 'clutter', 'mnist']:
+        if data_tag in ['translate', 'clutter', 'mnist', 'scale']: # and (stn_placement == [0] or loop):
             self.padding_mode = 'border'
         else:
             self.padding_mode = 'zeros'
+        print('padding mode', self.padding_mode)
 
         self.output = self.out(np.prod(final_shape))
 
