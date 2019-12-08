@@ -473,8 +473,12 @@ def distance_from_matrix(thetas):
     # Is negated twice because the digits are transformed in the reverse
     # of predicted transform, and because the y-axis is inverted.
 
-def plot_angles(rot, pred, line='equation', save_path='', title='',
+def plot_angles(rot=None, pred=None, res=None, line='equation', save_path='', title='',
                 xlabel='', ylabel='', pointlabel='', ll='best'):
+    if res is not None:
+        assert rot is None and pred is None
+        rot = np.concatenate(res[0])
+        pred = np.concatenate(res[1])
     plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
@@ -483,7 +487,7 @@ def plot_angles(rot, pred, line='equation', save_path='', title='',
     plt.xticks([-90,-45,0,45,90])
     plt.yticks([-90,-45,0,45,90])
 
-    plt.scatter([-1],[-1],s=2,c='black',label=pointlabel)
+    plt.scatter([],[],s=2,c='black',label=pointlabel)
 
     if line:
         # # Minimize vertical error
@@ -543,7 +547,11 @@ def plot_angles(rot, pred, line='equation', save_path='', title='',
 #         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,0])
 #         plot_angles(rotated_angles, 50 * np.concatenate(scale_by_label)[:,1])
 
-def plot_distance(tran, pred, save_path='', title=''):
+def plot_distance(tran=None, pred=None, res=None, save_path='', title=''):
+    if res is not None:
+        assert tran is None and pred is None
+        tran = np.concatenate(res[0])
+        pred = np.concatenate(res[1])
     assert title == '', "Not implemented yet"
     heatmap, xedges, yedges = np.histogram2d(
         tran[:,0], pred[:,0], bins=32, range=[[-16,16],[-16,16]])
@@ -563,7 +571,11 @@ def plot_distance(tran, pred, save_path='', title=''):
         plt.savefig(save_path, bbox_inches='tight', pad_inches=.03)
     plt.show()
 
-def plot_scale(logscale, pred, save_path='', title=''):
+def plot_scale(logscale=None, pred=None, res=None, save_path='', title=''):
+    if res is not None:
+        assert logscale is None and pred is None
+        logscale = np.concatenate(res[0])
+        pred = np.concatenate(res[1])
     # blues, reds = get_cmap('Blues'), get_cmap('Reds')
     # blues._init()
     # blues._lut[:,-1] = np.linspace(0, 0.5, blues.N+3)
@@ -704,11 +716,11 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
 
     if plot:
         if transform == 'rotate':
-            plot_angles(transformation, angles, save_path=save_path, title=title)
+            plot_angles(rot=transformation, pred=angles, save_path=save_path, title=title)
         elif transform == 'translate':
-            plot_distance(transformation, distances, save_path=save_path, title=title)
+            plot_distance(tran=transformation, pred=distances, save_path=save_path, title=title)
         else:
-            plot_scale(transformation, scales, save_path=save_path, title=title)
+            plot_scale(logscale=transformation, pred=scales, save_path=save_path, title=title)
 
     return tran_by_label, angle_by_label, distance_by_label, scale_by_label, det_by_label, shear_by_label
 
