@@ -60,8 +60,8 @@ parser.add_argument(
     help="Constant learning rate to use. Default is 0.01"
 )
 parser.add_argument(
-    "--switch-after-iterations", type=int, default=np.inf,
-    help="How many iterations until learning rate is multiplied by 0.1 or sqrt(e)"
+    "--switch-after-iterations", nargs="*", type=int, default=[np.inf],
+    help="How many iterations until learning rate is divided by divide-lr-by"
 )
 parser.add_argument(
     "--loc-lr-multiplier", type=float, default=1,
@@ -217,16 +217,21 @@ eval.d = d      # used when calling functions from eval
 
 
 #%% Setup
+# switch_after_epochs = [it/len(train_loader) for it in args.switch_after_iterations]
 print('Will switch learning rate after',args.switch_after_iterations,'iterations',
-      'approximately', args.switch_after_iterations / len(train_loader), 'epochs')
+      'approximately', [it/len(train_loader) for it in args.switch_after_iterations], 'epochs')
 
 def get_scheduler(optimizer):
-    return StepLRBase(
-        optimizer,
-        step_size = args.switch_after_iterations,
-        floor_lr = 0, # 0.00005,
+    if len(args.switch_after_iterations) == 1:
+        return t.optim.lr_scheduler.StepLR(
+            optimizer = optimizer,
+            step_size = args.switch_after_iterations[0],
+            gamma = 1/args.divide_lr_by
+        )
+    return t.optim.lr_scheduler.MultiStepLR(
+        optimizer = optimizer,
+        milestones = args.switch_after_iterations,
         gamma = 1/args.divide_lr_by,
-        last_epoch = -1
     )
 
 device = t.device("cuda" if t.cuda.is_available() else "cpu")
