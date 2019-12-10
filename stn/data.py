@@ -223,6 +223,9 @@ class CustomDataset(t.utils.data.Dataset):
 
         transforms = [tv.transforms.ToTensor()]
 
+        if transform:
+            transforms.insert(0, transform)
+
         if normalize:
             if len(self.frame.columns) == 6 and self.frame.iloc[0,3] != 0:
                 transforms.append(tv.transforms.Normalize(
@@ -234,9 +237,6 @@ class CustomDataset(t.utils.data.Dataset):
                     (float(self.frame.iloc[0,0])/255,),
                     (float(self.frame.iloc[0,1])/255,),
                 ))
-
-        if transform:
-            transforms.append(transform)
         
         self.transform = tv.transforms.Compose(transforms)
 
@@ -268,19 +268,34 @@ def get_precomputed(path, normalize=True, batch_size=128):
             concatenated with test.csv should be the path to a csv
             file containing information about the test data.
     """
+    plankton = path.split('/')[-2] == 'plankton'
+    print('plankton',plankton)
+    if plankton:
+        transform = tv.transforms.Compose([
+            tv.transforms.RandomAffine(
+                degrees = (-180,180),
+                translate = (10/64, 10/64),
+                shear = (-20,20),
+                resample = PIL.Image.BILINEAR),
+            RandomScale(np.log2(1/1.6), np.log2(1.6)),
+            tv.transforms.RandomHorizontalFlip(0.5),
+            # original also does 'stretching'
+        ])
+    else:
+        transform = None
     directory, csv_file = os.path.split(path)
     images = os.path.join(directory, 'images')
     train_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
-            root_dir=images, normalize=normalize,
+            root_dir=images, normalize=normalize, transform=transform
         ),
-        batch_size=batch_size, shuffle=True, num_workers=4
+        batch_size=batch_size, shuffle=True, num_workers= 16 if plankton else 4
     )
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
-            root_dir=images, normalize=normalize,
+            root_dir=images, normalize=normalize, # no data augmentation
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
