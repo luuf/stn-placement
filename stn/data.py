@@ -269,7 +269,6 @@ def get_precomputed(path, normalize=True, batch_size=128):
             file containing information about the test data.
     """
     plankton = path.split('/')[-2] == 'plankton'
-    print('plankton',plankton)
     if plankton:
         transform = tv.transforms.Compose([
             tv.transforms.RandomAffine(
