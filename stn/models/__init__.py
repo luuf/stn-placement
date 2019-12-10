@@ -1,6 +1,7 @@
 import models.mnist as mnist
 import models.cifar as cifar
 import models.svhn as svhn
+import models.plankton as plankton
 
 # dictionaries for mapping arguments to classes
 
@@ -36,4 +37,5 @@ model_dict = {
     'ylva':     mnist.ylva_mnist,
     'CNN2':     cifar.CNN2,
     'SVHN-CNN': svhn.SVHN_CNN,
+    'plankton': plankton.plankton_CNN,
 }
