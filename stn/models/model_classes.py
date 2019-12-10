@@ -167,7 +167,7 @@ class Classifier(Modular_Model):
                 *self.pre_stn, self.final_layers
             ))
 
-        if data_tag in ['translate', 'clutter', 'mnist', 'scale']: # and (stn_placement == [0] or loop):
+        if data_tag in ['translate', 'clutter', 'mnist', 'scale', 'plankton']: # and (stn_placement == [0] or loop):
             self.padding_mode = 'border'
         else:
             self.padding_mode = 'zeros'
