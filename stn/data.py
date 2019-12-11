@@ -233,10 +233,14 @@ class CustomDataset(t.utils.data.Dataset):
                     (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
                 ))
             else:
-                transforms.append(tv.transforms.Normalize(
-                    (float(self.frame.iloc[0,0])/255,),
-                    (float(self.frame.iloc[0,1])/255,),
-                ))
+                m = float(self.frame.iloc[0,0])/255
+                sd = float(self.frame.iloc[0,1])/255
+                transforms.append(tv.transforms.Normalize((0,), (sd,)))
+                self.mean = m/sd
+                # transforms.append(tv.transforms.Normalize(
+                #     (float(self.frame.iloc[0,0])/255,),
+                #     (float(self.frame.iloc[0,1])/255,),
+                # ))
         
         self.transform = tv.transforms.Compose(transforms)
 
