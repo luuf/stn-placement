@@ -41,6 +41,7 @@ def load_data(data_dir, normalize=True):
         except FileNotFoundError:
             train_loader, test_loader = data.get_precomputed(
                 '../data/'+d['dataset'], normalize=normalize)
+        untransformed_test = test_loader
 
 
 def get_model(prefix, version='final', di=None, llr=False):
@@ -140,7 +141,7 @@ def running_mean(l, w):
         r[i] /= n
     return r
 
-def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
+def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0,show=True):
     global history
     if di is not None:
         load_data(di)
@@ -160,7 +161,8 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0):
         else:
             plt.plot(r, running_mean(history['train_acc'], window)[start:])
             plt.plot(r, running_mean(history['test_acc'], window)[start:])
-        plt.show()
+        if show:
+            plt.show()
 
 
 ### VIEW TRANSFORMED IMAGES ###
@@ -369,7 +371,7 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
             param = np.random.uniform(-90,90,3)
         transformed = t.tensor([
             rotate(im[0][0], angle) for angle in param
-        ], dtype=t.float).reshape(-1, 1, 28, 28)
+        ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
         if normalize or normalize is None:
             transformed = (transformed - 0.1307) / 0.3081
     elif transform == 'translate':
