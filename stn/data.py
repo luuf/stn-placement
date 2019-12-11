@@ -268,7 +268,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
             concatenated with test.csv should be the path to a csv
             file containing information about the test data.
     """
-    plankton = path.split('/')[-2] == 'plankton'
+    plankton = 'plankton' in path.split('/')
     if plankton:
         transform = tv.transforms.Compose([
             tv.transforms.RandomAffine(
