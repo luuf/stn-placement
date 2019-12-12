@@ -320,7 +320,6 @@ for run in range(args.runs):
         args.model_parameters, input_shape, localization_class,
         args.localization_parameters, args.stn_placement,
         args.loop, args.dataset, args.batchnorm,
-        mean = train_loader.dataset.mean
     )
     model = model.to(device)
 

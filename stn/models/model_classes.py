@@ -104,7 +104,7 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False, mean=None):
+                 stn_placement, loop, data_tag, batchnorm=False):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
@@ -169,13 +169,11 @@ class Classifier(Modular_Model):
 
         if data_tag in ['translate', 'clutter', 'mnist', 'scale']: # and (stn_placement == [0] or loop):
             self.padding_mode = 'border'
-        # elif 'plankton' in data_tag.split('/'):
-        #     self.padding_mode = 'border'
+        elif 'plankton' in data_tag.split('/'):
+            self.padding_mode = 'border'
         else:
             self.padding_mode = 'zeros'
         print('padding mode', self.padding_mode)
-
-        self.mean = mean
 
         self.output = self.out(np.prod(final_shape))
 
@@ -196,8 +194,6 @@ class Classifier(Modular_Model):
         if self.localization:
             if self.loop_models:
                 input_image = x
-                if self.mean:
-                    x = x - self.mean # not inplace
                 theta = self.base_theta
                 for i,m in enumerate(self.loop_models):
                     localization_output = self.localization[i](m(x))
@@ -215,19 +211,13 @@ class Classifier(Modular_Model):
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
-                    elif self.mean:
-                        x -= self.mean
                 x = m(x)
             else:
-                if self.mean:
-                    x -= self.mean
                 for i,m in enumerate(self.pre_stn):
                     loc_input = m(x)
                     x = self.stn(self.localization[i](loc_input), loc_input)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
-        elif self.mean:
-            x -= self.mean
 
         # for i,layer in enumerate(self.layers):  # FOR DEBUGGING
         #     print('Layer', i, ': ', layer)
