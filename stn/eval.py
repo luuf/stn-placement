@@ -72,6 +72,7 @@ def get_model(prefix, version='final', di=None, llr=False):
         loop = d['loop'],
         data_tag = d['dataset'],
         batchnorm = batchnorm,
+        mean = train_loader.dataset.mean
     )
     
     model.load_state_dict(t.load(
@@ -359,6 +360,40 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     if save_path:
         plt.savefig(save_path, bbox_inches="tight", pad_inches=0)
     plt.show()
+
+def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
+    if di is not None:
+        model = get_model(model, di=di)
+    im = next(iter(test_loader))[0][:1]
+
+    if len(param) == 0:
+        param = np.random.uniform(-90,90,3)
+    transformed = t.tensor([
+        rotate(im[0][0], angle) for angle in param
+    ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
+
+    model.eval()
+    x = transformed if not model.mean else transformed - model.mean
+    theta = model.localization[0](model.pre_stn[0](x))
+    stn1 = model.stn(theta, transformed)
+
+    fig, axs = plt.subplots(2, 3, figsize=(6,4), # sharex, sharey not necessary
+                gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    plt.gray()
+    for i in range(3):
+        axs[0,i].imshow(transformed[i].detach().numpy()[0])
+        axs[1,i].imshow(stn1[i].detach().numpy()[0])
+        axs[0,i].set_xticks([])
+        axs[0,i].set_yticks([])
+        axs[1,i].set_xticks([])
+        axs[1,i].set_yticks([])
+
+    for ax in axs[:,0]:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    
+    plt.show()
+
 
 def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', param=[],
                            normalize=None, ylabels=['','',''], save_path='', title=''):
