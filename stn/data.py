@@ -77,16 +77,14 @@ class RandomScale:
 
 # http://raphael.candelier.fr/?blog=Image%20Moments
 def moment_rotate(im):
-    m = skimage.measure.moments(im.numpy()[0])
+    m = skimage.measure.moments(im.numpy()[0], 2)
     x, y = m[1,0]/m[0,0], m[0,1]/m[0,0]
     ux = m[2,0]/m[0,0] - x**2
     uy = m[0,2]/m[0,0] - y**2
     um = m[1,1]/m[0,0] - x*y
-    print(ux, uy, um)
-    theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2
-    print(theta*180/np.pi)
+    theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2 + np.pi/4
     im = tvF.to_pil_image(im)
-    im = tvF.rotate(im, -theta*180/np.pi, resample=PIL.Image.BILINEAR)
+    im = tvF.rotate(im, -theta*180/np.pi, resample=PIL.Image.BILINEAR, center=(y,x))
     im = tvF.to_tensor(im)
     return im
 
@@ -127,7 +125,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
             transforms.append(tv.transforms.Normalize((0.0414,), (0.1751,)))
             
     else:
-        transforms = [tv.transforms.ToTensor()]
+        transforms = [tv.transforms.ToTensor(), moment_rotate]
         if rotate:
             transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
         if normalize:
@@ -237,7 +235,7 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        transforms = [tv.transforms.ToTensor()]
+        transforms = [tv.transforms.ToTensor(), moment_rotate]
 
         if transform:
             transforms.insert(0, transform)
