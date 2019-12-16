@@ -4,9 +4,9 @@ import torch as t
 import torchvision as tv
 import torchvision.transforms.functional as tvF
 import pandas as pd
-from skimage import io
 import os
 import PIL
+import skimage
 
 # def oldmnist():
 #     (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
@@ -74,6 +74,22 @@ class RandomScale:
             scale = 2**(np.random.uniform(self.loglow, self.loghigh)),
             resample = PIL.Image.BILINEAR,
             fillcolor = 0)
+
+# http://raphael.candelier.fr/?blog=Image%20Moments
+def moment_rotate(im):
+    m = skimage.measure.moments(im.numpy()[0])
+    x, y = m[1,0]/m[0,0], m[0,1]/m[0,0]
+    ux = m[2,0]/m[0,0] - x**2
+    uy = m[0,2]/m[0,0] - y**2
+    um = m[1,1]/m[0,0] - x*y
+    print(ux, uy, um)
+    theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2
+    print(theta*180/np.pi)
+    im = tvF.to_pil_image(im)
+    im = tvF.rotate(im, -theta*180/np.pi, resample=PIL.Image.BILINEAR)
+    im = tvF.to_tensor(im)
+    return im
+
 
 def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=256):
     """Gets the mnist dataset from torchvision, and manipulates it.
