@@ -235,7 +235,8 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        transforms = [tv.transforms.ToTensor(), moment_rotate]
+        transforms = [tv.transforms.ToTensor(),
+            tv.transforms.RandomApply([moment_rotate], p=1)]
 
         if transform:
             transforms.insert(0, transform)
@@ -254,6 +255,9 @@ class CustomDataset(t.utils.data.Dataset):
         
         self.transform = tv.transforms.Compose(transforms)
 
+    def set_moment_probability(self, p):
+        # assumes normalization
+        self.transform.transforms[-2] = tv.transforms.RandomApply([moment_rotate], p=p)
 
     def __len__(self):
         return len(self.frame) - 1 # first line contains metadata
