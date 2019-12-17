@@ -347,6 +347,18 @@ for run in range(args.runs):
         train(epoch)
         test(epoch)
         if epoch % 10 == 0:
+            if epoch == 0:
+                train_loader.dataset.set_moment_probability(0.5)
+                test_loader.dataset.set_moment_probability(0.5)
+            if epoch == 10:
+                train_loader.dataset.set_moment_probability(0.2)
+                test_loader.dataset.set_moment_probability(0.2)
+            if epoch == 40:
+                train_loader.dataset.set_moment_probability(0.1)
+                test_loader.dataset.set_moment_probability(0.1)
+            if epoch == 150:
+                train_loader.dataset_set_moment_probability(0)
+                test_loader.dataset_set_moment_probability(0)
             print(
                 'Epoch', epoch, '\n'
                 'Train loss {} acc {} \n Test loss {} acc {}'.format(
