@@ -7,6 +7,7 @@ import pandas as pd
 import os
 import PIL
 import skimage
+import matplotlib.pyplot as plt
 
 # def oldmnist():
 #     (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
@@ -77,15 +78,38 @@ class RandomScale:
 
 # http://raphael.candelier.fr/?blog=Image%20Moments
 def moment_rotate(im):
-    m = skimage.measure.moments(im.numpy()[0], 2)
+    image = im.numpy()[0]
+    # plt.imshow(image)
+    m = skimage.measure.moments(image, 2)
     x, y = m[1,0]/m[0,0], m[0,1]/m[0,0]
     ux = m[2,0]/m[0,0] - x**2
     uy = m[0,2]/m[0,0] - y**2
     um = m[1,1]/m[0,0] - x*y
-    theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2 + np.pi/4
+    theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2 # + np.pi/4
+    # print('Theta', theta*180/np.pi)
+
+    i,j = np.indices(image.shape).astype(np.float32)
+    i *= np.cos(theta)
+    j *= np.sin(theta)
+    d = np.cos(theta)*x + np.sin(theta)*y
+    matrix = ((j+i-d) > 0).astype(np.float32)
+    # temp = matrix[int(x)][int(y)]
+    # matrix[int(x)][int(y)] = 2
+    # plt.figure()
+    # plt.imshow(matrix)
+    # matrix[int(x)][int(y)] = temp
+    matrix -= 0.5
+    if np.sum(image*matrix) > 0:
+        theta += np.pi
+        # print('Added')
+    # print('Theta', theta*180/np.pi)
+    theta += np.pi/4
+
     im = tvF.to_pil_image(im)
     im = tvF.rotate(im, -theta*180/np.pi, resample=PIL.Image.BILINEAR, center=(y,x))
     im = tvF.to_tensor(im)
+    # plt.figure()
+    # plt.imshow(im[0])
     return im
 
 
