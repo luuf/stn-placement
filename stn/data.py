@@ -241,6 +241,26 @@ def augmented_cifar(rotate=False,normalize=False):
     assert normalize is False
     return cifar10(rotate,False,True)
 
+# inspired by data/plankton/rescale_images.py
+class Resize_Image(im, length):
+    def __init__(self, length, scale_up=False):
+        self.length = length
+        self.scale_up = scale_up
+
+    def __call__(self, im):
+        im = PIL.ImageOps.invert(im)
+        ratio = self.length / max(im.size[:2])
+
+        if ratio < 1 or self.scale_up:
+            new_size = np.rint(ratio * np.array(im.size[:2])).astype(int)
+            im = im.resize(new_size, PIL.Image.ANTIALIAS)
+        else:
+            new_size = im.size[:2]
+        dw, dh = self.length - new_size
+        padding = (dw//2, dh//2, dw - dw//2, dh - dh//2)
+        im = PIL.ImageOps.expand(im, padding)
+
+        return im
 
 class CustomDataset(t.utils.data.Dataset):
     """Represents any precomputed dataset. The first row of the csv
