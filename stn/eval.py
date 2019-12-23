@@ -72,7 +72,7 @@ def get_model(prefix, version='final', di=None, llr=False):
         loop = d['loop'],
         data_tag = d['dataset'],
         batchnorm = batchnorm,
-        mean = train_loader.dataset.mean
+        # mean = train_loader.dataset.mean
     )
     
     model.load_state_dict(t.load(
@@ -364,16 +364,25 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
 def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
     if di is not None:
         model = get_model(model, di=di)
+
+    print(test_loader.dataset.transform.transforms)
+    test_loader.dataset.set_moment_probability(0)
+    print(test_loader.dataset.transform.transforms)
     im = next(iter(test_loader))[0][:1]
+    if d['normalize']:
+        normalizer = test_loader.dataset.transform.transforms[-1]
+        im = im * normalizer.std[0] + normalizer.mean[0]
 
     if len(param) == 0:
-        param = np.random.uniform(-90,90,3)
+        param = np.random.uniform(-180,180,3)
     transformed = t.tensor([
         rotate(im[0][0], angle) for angle in param
     ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
+    if d['normalize']:
+        transformed = (transformed - normalizer.mean[0]) / normalizer.std[0]
 
     model.eval()
-    x = transformed if not model.mean else transformed - model.mean
+    x = transformed
     theta = model.localization[0](model.pre_stn[0](x))
     stn1 = model.stn(theta, transformed)
 
