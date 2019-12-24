@@ -148,7 +148,8 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         if normalize:
             transforms.append(tv.transforms.Normalize((0.0414,), (0.1751,)))
     else:
-        transforms = [tv.transforms.ToTensor(), moment_rotate]
+        random_moment_rotate = tv.transforms.RandomApply([moment_rotate], p=1)
+        transforms = [tv.transforms.ToTensor(), random_moment_rotate]
         if rotate:
             transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
         if normalize:
@@ -170,7 +171,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         batch_size=batch_size, shuffle=True, num_workers=16 if translate or scale else 4
     )
     def set_moment_probability(p):
-        transforms[-2] = tv.transforms.RandomApply([moment_rotate], p=p)
+        random_moment_rotate.p = p
     train_loader.dataset.set_moment_probability = set_moment_probability
     test_loader.dataset.set_moment_probability = set_moment_probability
     # note that this prevents us from modifying only the train/test loader
@@ -242,20 +243,20 @@ def augmented_cifar(rotate=False,normalize=False):
     return cifar10(rotate,False,True)
 
 # inspired by data/plankton/rescale_images.py
-class Resize_Image(im, length):
+class Resize_Image:
     def __init__(self, length, scale_up=False):
         self.length = length
         self.scale_up = scale_up
 
     def __call__(self, im):
         im = PIL.ImageOps.invert(im)
-        ratio = self.length / max(im.size[:2])
+        ratio = self.length / max(im.size)
 
         if ratio < 1 or self.scale_up:
             new_size = np.rint(ratio * np.array(im.size[:2])).astype(int)
             im = im.resize(new_size, PIL.Image.ANTIALIAS)
         else:
-            new_size = im.size[:2]
+            new_size = np.array(im.size)
         dw, dh = self.length - new_size
         padding = (dw//2, dh//2, dw - dw//2, dh - dh//2)
         im = PIL.ImageOps.expand(im, padding)
@@ -283,8 +284,8 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        transforms = [tv.transforms.ToTensor(),
-            tv.transforms.RandomApply([moment_rotate], p=1)]
+        self.moment_rotate = tv.transforms.RandomApply([moment_rotate], p=1)
+        transforms = [tv.transforms.ToTensor(), self.moment_rotate]
 
         if transform:
             transforms.insert(0, transform)
@@ -304,8 +305,7 @@ class CustomDataset(t.utils.data.Dataset):
         self.transform = tv.transforms.Compose(transforms)
 
     def set_moment_probability(self, p):
-        # assumes normalization
-        self.transform.transforms[-2] = tv.transforms.RandomApply([moment_rotate], p=p)
+        self.moment_rotate.p = p
 
     def __len__(self):
         return len(self.frame) - 1 # first line contains metadata
@@ -349,7 +349,16 @@ def get_precomputed(path, normalize=True, batch_size=128):
     else:
         transform = None
     directory, csv_file = os.path.split(path)
-    images = os.path.join(directory, 'images')
+    if csv_file == 'unprocessed_':
+        assert not normalize, "don't normalize unprocessed images"
+        images = os.path.join(directory, 'unprocessed')
+        resize = Resize_Image(192, scale_up=False)
+        transform = (resize if transform is None
+                    else tv.transforms.Compose([resize, transform]))
+        test_transform = resize
+    else:
+        images = os.path.join(directory, 'images')
+        test_transform = None
     train_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
@@ -360,7 +369,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
     test_loader = t.utils.data.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
-            root_dir=images, normalize=normalize, # no data augmentation
+            root_dir=images, normalize=normalize, transform=test_transform
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
