@@ -25,8 +25,11 @@ def get_output_shape(input_shape, module):
 
 class Downsample(t.nn.Module):
     """Halves each side of the input by downsampling bilinearly"""
+    def __init__(self, scale_factor):
+        super().__init__()
+        self.scale_factor = scale_factor
     def forward(self, x):
-        return F.interpolate(x, scale_factor=0.5, mode='bilinear')
+        return F.interpolate(x, scale_factor=self.scale_factor, mode='bilinear')
 
 
 class Modular_Model(t.nn.Module):
@@ -107,7 +110,19 @@ class Classifier(Modular_Model):
                  stn_placement, loop, data_tag, batchnorm=False):
         super().__init__(parameters)
 
-        layers = self.get_layers(input_shape)
+        if data_tag in ['translate','clutter'] and localization_class:
+            scale_down_by = 2
+        elif data_tag.split('/')[-1] == 'unprocessed_' and localization_class:
+            scale_down_by = 3
+        else:
+            scale_down_by = 1
+        assert scale_down_by == 1 or loop or len(stn_placement) == 1
+        self.size_transform = np.array([1,1,scale_down_by,scale_down_by])
+        downsampler = Downsample(1/scale_down_by)
+
+        downsampled_shape = (input_shape[0], input_shape[1]//scale_down_by, input_shape[2]//scale_down_by)
+        layers = self.get_layers(downsampled_shape)
+            
         if len(stn_placement) > 0:
             split_at = zip([0]+stn_placement[:-1],stn_placement)
             self.pre_stn = t.nn.ModuleList([t.nn.Sequential(*layers[s:e]) for s,e in split_at])
@@ -137,9 +152,14 @@ class Classifier(Modular_Model):
             else:
                 self.batchnorm = t.nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
-            shape = input_shape
-            self.localization = t.nn.ModuleList()
-            for model in self.pre_stn:
+            shape = get_output_shape(input_shape, self.pre_stn[0])
+            self.localization = t.nn.ModuleList(
+                [localization_class(localization_parameters, shape)])
+            if batchnorm and not loop:
+                self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
+            if scale_down_by != 1 and loop:
+                shape = get_output_shape(downsampled_shape, self.pre_stn[0])
+            for model in self.pre_stn[1:]:
                 shape = get_output_shape(shape, model)
                 self.localization.append(localization_class(localization_parameters, shape))
                 if batchnorm and not loop:
@@ -147,24 +167,13 @@ class Classifier(Modular_Model):
         else:
             self.localization = None
 
-        if data_tag in ['translate','clutter'] and self.localization is not None:
-            print('STN will downsample, since the data is', data_tag)
-
-            assert len(stn_placement) == 1, 'Downsampling not implemented for multiple stns'
-
-            self.size_transform = np.array([1,1,2,2])
-            if loop:
-                final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    Downsample(), *self.pre_stn, self.final_layers
-                ))
-            else:
-                final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                    *self.pre_stn, Downsample(), self.final_layers
-                ))
-        else:
-            self.size_transform = np.array([1,1,1,1]) # only used if STN is used
+        if loop:
             final_shape = get_output_shape(input_shape, t.nn.Sequential(
-                *self.pre_stn, self.final_layers
+                downsampler, *self.pre_stn, self.final_layers
+            ))
+        else:
+            final_shape = get_output_shape(input_shape, t.nn.Sequential(
+                *self.pre_stn, downsampler, self.final_layers
             ))
 
         if data_tag in ['translate', 'clutter', 'mnist', 'scale']: # and (stn_placement == [0] or loop):
