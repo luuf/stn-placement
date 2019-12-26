@@ -133,6 +133,17 @@ batchnorm_parser.add_argument(
 )
 parser.set_defaults(batchnorm=False)
 
+iterative_parser = parser.add_mutually_exclusive_group(required=False)
+iterative_parser.add_argument(
+    "--iterative", dest="iterative", action="store_true",
+    help="""If a number reoccurs in stn-placement,
+    it will reuse the localization parameters iff iterative. Default: True"""
+)
+iterative_parser.add_argument(
+    '--no-iterative', dest='iterative', action='store_false',
+)
+parser.set_defaults(iterative=True)
+
 args = parser.parse_args()
 
 print("Parsed: ", args)
@@ -211,6 +222,7 @@ d = {
         'rotate': args.rotate,
         'normalize': args.normalize,
         'batchnorm': args.batchnorm,
+        'iterative': args.iterative,
     }
 t.save(d, directory + 'model_details')
 eval.d = d      # used when calling functions from eval
@@ -319,7 +331,7 @@ for run in range(args.runs):
     model = model_class(
         args.model_parameters, input_shape, localization_class,
         args.localization_parameters, args.stn_placement,
-        args.loop, args.dataset, args.batchnorm,
+        args.loop, args.dataset, args.batchnorm, args.iterative
     )
     model = model.to(device)
 

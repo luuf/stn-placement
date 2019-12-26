@@ -107,7 +107,7 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False):
+                 stn_placement, loop, data_tag, batchnorm=False, iterative=True):
         super().__init__(parameters)
 
         if data_tag in ['translate','clutter'] and localization_class:
@@ -160,8 +160,12 @@ class Classifier(Modular_Model):
             if scale_down_by != 1 and loop:
                 shape = get_output_shape(downsampled_shape, self.pre_stn[0])
             for model in self.pre_stn[1:]:
-                shape = get_output_shape(shape, model)
-                self.localization.append(localization_class(localization_parameters, shape))
+                if iterative and len(model) == 0:
+                    self.localization.append(self.localization[-1])
+                    print('Doing the iterative thing')
+                else:
+                    shape = get_output_shape(shape, model)
+                    self.localization.append(localization_class(localization_parameters, shape))
                 if batchnorm and not loop:
                     self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
         else:
