@@ -195,13 +195,27 @@ def test_stn(model=0, n=4, di=None, version='final'):
         plt.imshow(transformed)
         plt.show()
 
-def test_multi_stn(model=0, n=4, di=None, version='final'):
+def test_multi_stn(model=0, n=4, di=None, version='final', param=[]):
     if type(model) == int:
         model = get_model(model, di=di, version=version)
     model.eval()
+    try:
+        test_loader.dataset.set_moment_probability(0)
+    except:
+        print('no moment prob')
     batch = next(iter(test_loader))[0][:n]
-    assert not d.get('batchnorm')
+    if len(param) == n:
+        if d['normalize']:
+            normalizer = test_loader.dataset.transform.transforms[-1]
+            batch = batch * normalizer.std[0] + normalizer.mean[0]
+        batch = t.tensor([
+            rotate(batch[0][0], angle) for angle in param
+        ], dtype=t.float).reshape(batch.shape)
+        if d['normalize']:
+            batch = (batch - normalizer.mean[0]) / normalizer.std[0]
+
     if not d['loop']:
+        assert not d.get('batchnorm')
         transformed = [batch]
         x = batch
         for i,m in enumerate(model.pre_stn):
@@ -230,6 +244,8 @@ def test_multi_stn(model=0, n=4, di=None, version='final'):
             # between multiplying from the right and left.
             x = model.stn(theta[:,0:2,:], batch)
             transformed.append(x)
+            if d.get('batchnorm'):
+                x = model.batchnorm[i](x)
 
     minimum = t.min(batch)
     maximum = t.max(batch)
@@ -365,9 +381,7 @@ def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
     if di is not None:
         model = get_model(model, di=di)
 
-    print(test_loader.dataset.transform.transforms)
     test_loader.dataset.set_moment_probability(0)
-    print(test_loader.dataset.transform.transforms)
     im = next(iter(test_loader))[0][:1]
     if d['normalize']:
         normalizer = test_loader.dataset.transform.transforms[-1]
