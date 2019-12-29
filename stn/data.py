@@ -244,12 +244,14 @@ def augmented_cifar(rotate=False,normalize=False):
 
 # inspired by data/plankton/rescale_images.py
 class Resize_Image:
-    def __init__(self, length, scale_up=False):
+    def __init__(self, length, scale_up=False, invert=True):
         self.length = length
         self.scale_up = scale_up
+        self.invert = invert
 
     def __call__(self, im):
-        im = PIL.ImageOps.invert(im)
+        if self.invert:
+            im = PIL.ImageOps.invert(im)
         ratio = self.length / max(im.size)
 
         if ratio < 1 or self.scale_up:
@@ -350,12 +352,12 @@ def get_precomputed(path, normalize=True, batch_size=128):
         transform = None
     directory, csv_file = os.path.split(path)
     if csv_file == 'unprocessed_':
-        assert not normalize, "don't normalize unprocessed images"
         images = os.path.join(directory, 'unprocessed')
-        resize = Resize_Image(192, scale_up=False)
+        resize192 = Resize_Image(192, scale_up=True)
+        resize = Resize_Image(64, scale_up=True, invert=False)
         transform = (resize if transform is None
-                    else tv.transforms.Compose([resize, transform]))
-        test_transform = resize
+                    else tv.transforms.Compose([resize192, transform, resize]))
+        test_transform = Resize_Image(64, scale_up=True)
     else:
         images = os.path.join(directory, 'images')
         test_transform = None
