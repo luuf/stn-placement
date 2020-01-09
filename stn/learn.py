@@ -193,7 +193,7 @@ def test(epoch = None):
 def pretrain(epoch):
     model.train()
     for batch_idx, (x, _) in enumerate(train_loader):
-        moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2]
+        moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2].to(device)
         x = x.to(device)
         optimizer.zero_grad()
 
@@ -219,7 +219,7 @@ def pretest(epoch):
         model.eval()
         test_loss = 0
         for x, _ in test_loader:
-            moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2]
+            moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2].to(device)
             x = x.to(device)
 
             theta = model(x)[:,0:2,0:2]
