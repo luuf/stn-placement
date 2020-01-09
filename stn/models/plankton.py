@@ -22,53 +22,54 @@ class plankton_CNN(Classifier):
         )
 
     def get_layers(self, in_shape):
-        mp = nn.MaxPool2d(kernel_size=(3,3), stride=2, padding=1)
+        mp = nn.MaxPool2d(kernel_size=(3,3), stride=2, padding=0) #changed
+        #dropout2d = nn.Dropout2d(0.2, inplace=False)
         # should exactly halve the side of even-sided inputs
         return nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(in_shape[0], self.param[0], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[0], self.param[1], kernel_size=(3,3), padding=1),
-                afn, mp,
+                afn, mp,#dropout2d
             ), # cyclic roll
             nn.Sequential(
                 nn.Conv2d(self.param[1], self.param[2], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[2], self.param[3], kernel_size=(3,3), padding=1),
-                afn, mp,
+                afn, mp,#dropout2d
             ), # cyclic roll
             nn.Sequential(
                 nn.Conv2d(self.param[3], self.param[4], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[4], self.param[5], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[5], self.param[6], kernel_size=(3,3), padding=1),
-                afn, mp,
+                afn, mp,#dropout2d
             ), # cyclic roll
             nn.Sequential(
                 nn.Conv2d(self.param[6], self.param[7], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[7], self.param[8], kernel_size=(3,3), padding=1),
-                afn,
+                afn,#dropout2d
             ),
             nn.Sequential(
                 nn.Conv2d(self.param[8], self.param[9], kernel_size=(3,3), padding=1),
-                afn, mp,
+                afn, mp,#dropout2d
             ), # cyclic roll
             nn.Sequential(
                 Flatten(),
                 nn.Dropout(0.5),
-                nn.Linear((in_shape[-1]//(2**4))**2*self.param[9], self.param[10]),
+                nn.Linear((in_shape[-1]//2//2//2//2)**2*self.param[9], self.param[10]),
                 afn,
             ),
             nn.Sequential(
