@@ -291,6 +291,9 @@ class CustomDataset(t.utils.data.Dataset):
 
         if transform:
             transforms.insert(0, transform)
+            #if isinstance(transform, tv.transforms.Compose):
+                #print('inserting noise')
+                #transforms.append(tv.transforms.Lambda(lambda x: x + t.randn_like(x)*0.05))
 
         if normalize:
             if len(self.frame.columns) == 6 and self.frame.iloc[0,3] != 0:
@@ -341,10 +344,10 @@ def get_precomputed(path, normalize=True, batch_size=128):
         transform = tv.transforms.Compose([
             tv.transforms.RandomAffine(
                 degrees = (-180,180),
-                translate = (10/64, 10/64),
+                translate = (10/95, 10/95),
                 shear = (-20,20),
                 resample = PIL.Image.BILINEAR),
-            RandomScale(np.log2(1/1.6), np.log2(1.6)),
+            RandomScale(np.log2(1/1.3), np.log2(1.3)),
             tv.transforms.RandomHorizontalFlip(0.5),
             # original also does 'stretching'
         ])
@@ -354,10 +357,10 @@ def get_precomputed(path, normalize=True, batch_size=128):
     if csv_file == 'unprocessed_':
         images = os.path.join(directory, 'unprocessed')
         resize192 = Resize_Image(192, scale_up=True)
-        resize = Resize_Image(64, scale_up=True, invert=False)
+        resize = Resize_Image(95, scale_up=True, invert=False)
         transform = (resize if transform is None
                     else tv.transforms.Compose([resize192, transform, resize]))
-        test_transform = Resize_Image(64, scale_up=True)
+        test_transform = Resize_Image(95, scale_up=True)
     else:
         images = os.path.join(directory, 'images')
         test_transform = None
