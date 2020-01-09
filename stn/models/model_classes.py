@@ -229,6 +229,8 @@ class Classifier(Modular_Model):
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
+                if self.pretrain:
+                    return theta[:,0:2,:]
                 x = m(x)
             else:
                 for i,m in enumerate(self.pre_stn):
