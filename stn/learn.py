@@ -11,7 +11,7 @@ from os import makedirs, path
 import data
 import models
 import parser
-import utils
+import angles
 from datetime import datetime
 from functools import partial
 from ylvas_code.lrdecay_functions import StepLRBase
@@ -161,50 +161,6 @@ def train(epoch):
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
-def pretrain(epoch):
-    model.train()
-    for batch_idx, (x, _) in enumerate(train_loader):
-        moment_theta = utils.matrix_from_moment(x)[:,0:2,0:2]
-        x = x.to(device)
-        optimizer.zero_grad()
-
-        theta = model(x)[:,0:2,0:2]
-
-        #stn_angle = utils.angle_from_matrix(theta)
-        #loss = t.mean(((stn_angle-moment_angle)%(2*np.pi))**2)
-        loss = torch.mean((theta-moment_theta)**2)
-        loss.backward()
-        optimizer.step()
-        history['train_loss'][epoch] += loss.item() * x.shape[0]
-
-        if batch_idx % 50 == 0 and device == torch.device("cpu"):
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(x), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
-
-        scheduler.step()
-    history['train_loss'][epoch] /= len(train_loader.dataset)
-
-def pretest(epoch):
-    with torch.no_grad():
-        model.eval()
-        test_loss = 0
-        for x, _ in test_loader:
-            moment_angle = -torch.tensor(utils.get_moment_angle(x), dtype=torch.float32)
-            x = x.to(device)
-
-            theta = model(x)
-            stn_angle = utils.angle_from_matrix(theta)
-
-            loss = torch.sum((theta-moment_theta)**2)
-            test_loss += loss.item()
-    
-    test_loss /= 6*len(test_loader.dataset)
-
-    if not epoch is None:
-        history['test_loss'][epoch] = test_loss
-    return test_loss
-
 cross_entropy_sum = nn.CrossEntropyLoss(reduction='sum')
 def test(epoch = None):
     with torch.no_grad():
@@ -233,6 +189,49 @@ def test(epoch = None):
         history['test_loss'][epoch] = test_loss
         history['test_acc'][epoch] = correct
     return test_loss, correct
+
+def pretrain(epoch):
+    model.train()
+    for batch_idx, (x, _) in enumerate(train_loader):
+        moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2]
+        x = x.to(device)
+        optimizer.zero_grad()
+
+        theta = model(x)[:,0:2,0:2]
+
+        #stn_angle = angles.angle_from_matrix(theta)
+        #loss = t.mean(((stn_angle-moment_angle)%(2*np.pi))**2)
+        loss = torch.mean((theta-moment_theta)**2)
+        loss.backward()
+        optimizer.step()
+        history['train_loss'][epoch] += loss.item() * x.shape[0]
+
+        if batch_idx % 50 == 0 and device == torch.device("cpu"):
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(x), len(train_loader.dataset),
+                100. * batch_idx / len(train_loader), loss.item()))
+
+        scheduler.step()
+    history['train_loss'][epoch] /= len(train_loader.dataset)
+
+def pretest(epoch):
+    with torch.no_grad():
+        model.eval()
+        test_loss = 0
+        for x, _ in test_loader:
+            moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2]
+            x = x.to(device)
+
+            theta = model(x)[:,0:2,0:2]
+
+            loss = torch.sum((theta-moment_theta)**2)
+            test_loss += loss.item()
+    
+    test_loss /= 6*len(test_loader.dataset)
+
+    if not epoch is None:
+        history['test_loss'][epoch] = test_loss
+    return test_loss
 
 #%% Run
 for run in range(args.runs):
