@@ -351,8 +351,8 @@ for run in range(args.runs):
     scheduler = get_scheduler(optimizer)
     start_time = time.time()
 
-    train_loader.dataset.set_moment_probability(1)
-    test_loader.dataset.set_moment_probability(1)
+    train_loader.dataset.set_moment_probability(0)
+    test_loader.dataset.set_moment_probability(0)
     for epoch in range(epochs):
         if epoch % 100 == 0 and epoch != 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
@@ -361,21 +361,6 @@ for run in range(args.runs):
         train(epoch)
         test(epoch)
         if epoch % 10 == 0:
-            if epoch == 0:
-                train_loader.dataset.set_moment_probability(0.5)
-                test_loader.dataset.set_moment_probability(0.5)
-            if epoch == 10:
-                train_loader.dataset.set_moment_probability(0.3)
-                test_loader.dataset.set_moment_probability(0.3)
-            if epoch == 40:
-                train_loader.dataset.set_moment_probability(0.2)
-                test_loader.dataset.set_moment_probability(0.2)
-            if epoch == 100:
-                train_loader.dataset.set_moment_probability(0.1)
-                test_loader.dataset.set_moment_probability(0.1)
-            if epoch == 200:
-                train_loader.dataset.set_moment_probability(0)
-                test_loader.dataset.set_moment_probability(0)
             print(
                 'Epoch', epoch, '\n'
                 'Train loss {} acc {} \n Test loss {} acc {}'.format(
