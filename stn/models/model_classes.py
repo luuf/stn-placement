@@ -107,13 +107,13 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False, iterative=True):
+                 stn_placement, loop, data_tag, batchnorm=False, iterative=True, downsample=False):
         super().__init__(parameters)
 
         if data_tag in ['translate','clutter'] and localization_class:
             scale_down_by = 2
         elif data_tag.split('/')[-1] == 'unprocessed_' and localization_class:
-            scale_down_by = 3
+            scale_down_by = 1
         else:
             scale_down_by = 1
         assert scale_down_by == 1 or loop or len(stn_placement) == 1
@@ -152,7 +152,8 @@ class Classifier(Modular_Model):
             else:
                 self.batchnorm = t.nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
-            shape = get_output_shape(input_shape, self.pre_stn[0])
+            shape = downsampled_shape if downsample else input_shape
+            shape = get_output_shape(shape, self.pre_stn[0])
             self.localization = t.nn.ModuleList(
                 [localization_class(localization_parameters, shape)])
             if batchnorm and not loop:
@@ -190,6 +191,8 @@ class Classifier(Modular_Model):
 
         self.output = self.out(np.prod(final_shape))
 
+        #self.downsampler = downsampler
+
         # self.layers = layers_obj.get_layers(input_shape) # FOR DEBUGGING
     
     def stn(self, theta, y):
@@ -208,6 +211,8 @@ class Classifier(Modular_Model):
             if self.loop_models:
                 input_image = x
                 theta = self.base_theta
+                #x = self.downsampler(x)
+                #x = self.stn(theta.repeat(x.size(0),1,1)[:,0:2,:], x)
                 for i,m in enumerate(self.loop_models):
                     localization_output = self.localization[i](m(x))
                     mat = F.pad(localization_output, (0,3)).view((-1,3,3))
