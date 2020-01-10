@@ -227,7 +227,7 @@ def pretest(epoch):
             loss = torch.sum(torch.abs(theta-moment_theta))
             test_loss += loss.item()
     
-    test_loss /= 6*len(test_loader.dataset)
+    test_loss /= 4*len(test_loader.dataset)
 
     if not epoch is None:
         history['test_loss'][epoch] = test_loss
