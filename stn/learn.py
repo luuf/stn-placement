@@ -201,7 +201,8 @@ def pretrain(epoch):
 
         #stn_angle = angles.angle_from_matrix(theta)
         #loss = t.mean(((stn_angle-moment_angle)%(2*np.pi))**2)
-        loss = torch.mean(torch.abs(theta-moment_theta))
+        det = torch.abs(torch.det(theta))
+        loss = torch.mean(torch.abs(theta-moment_theta)) + det + 1/det - 2
         loss.backward()
         optimizer.step()
         history['train_loss'][epoch] += loss.item() * x.shape[0]
@@ -224,7 +225,8 @@ def pretest(epoch):
 
             theta = model(x)[:,0:2,0:2]
 
-            loss = torch.sum(torch.abs(theta-moment_theta))
+            det = torch.abs(torch.det(theta))
+            loss = torch.sum(torch.abs(theta-moment_theta)) + 4*(det+1/det-2)
             test_loss += loss.item()
     
     test_loss /= 4*len(test_loader.dataset)
