@@ -69,6 +69,10 @@ def get_parser():
     parser.add_argument(
         "--batch-size", '-b', type=int, default=256,
     )
+    parser.add_argument(
+        "--load-model", type=str, default="",
+        help="Initialize the model to that of the path"
+    )
 
     epoch_parser = parser.add_mutually_exclusive_group(required=True)
     epoch_parser.add_argument(

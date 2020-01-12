@@ -256,6 +256,11 @@ for run in range(args.runs):
     model = model.to(device)
     model.pretrain = args.pretrain
 
+    if args.load_model:
+        model.load_state_dict(torch.load(
+            args.load_model, map_location=device
+        ))
+
     # Train model
     params = [{'params': model.pre_stn.parameters()},
               {'params': model.final_layers.parameters()},
