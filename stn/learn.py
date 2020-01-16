@@ -277,8 +277,6 @@ for run in range(args.runs):
     scheduler = get_scheduler(optimizer)
     start_time = time.time()
 
-    train_loader.dataset.set_moment_probability(0)
-    test_loader.dataset.set_moment_probability(0)
     for epoch in range(epochs):
         if epoch % 100 == 0 and epoch != 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
