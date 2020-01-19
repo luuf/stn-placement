@@ -262,10 +262,11 @@ for run in range(args.runs):
         ))
 
     # Train model
-    params = [{'params': model.pre_stn.parameters()},
-              {'params': model.final_layers.parameters()},
+    params = [{'params': model.final_layers.parameters()},
               {'params': model.output.parameters()}]
     if localization_class:
+        params.append({'params': model.pre_stn.parameters(),
+                        'lr': args.lr * args.pre_stn_multiplier})
         params.append({'params': model.localization.parameters(),
                        'lr': args.lr * args.loc_lr_multiplier})
 

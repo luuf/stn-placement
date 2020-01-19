@@ -56,6 +56,10 @@ def get_parser():
         help="How much less the localization lr is than the base lr"
     )
     parser.add_argument(
+        "--pre-stn-multiplier", type=float, default=1,
+        help="How much less the pre-stn lr is than the base lr"
+    )
+    parser.add_argument(
         "--divide-lr-by", type=float, default=10,
         help="Divide the lr by this number when changing lr"
     )
