@@ -10,6 +10,28 @@ class Flatten(nn.Module):
         return input.view(input.size(0), -1)
 
 
+### LOCALIZATION ###
+
+class plankton_large(Classifier):
+    default_parameters = [32,32,32,32]
+
+    def init_model(self, in_shape):
+        self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(3,3), padding=1)
+        self.mp = nn.MaxPool2d(kernel_size=(3,3), stride=2, padding=0) #changed
+        self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(3,3), padding=1)
+
+        side = in_shape[1]//2
+        self.l1 = nn.Linear(self.param[1] * int(side)**2, self.param[2])
+        self.l2 = nn.Linear(self.param[2], self.param[3])
+
+    def model(self, x):
+        x = self.mp(F.relu(self.c1(x)))
+        x = self.mp(F.relu(self.c2(x)))
+        x = F.relu(self.l1(x.view(x.size(0), -1)))
+        x = F.relu(self.l2(x))
+        return x
+
+
 ### CLASSIFICATION ###
 
 class plankton_CNN(Classifier):
