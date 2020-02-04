@@ -6,6 +6,7 @@ import PIL.Image
 import numpy as np
 import models
 import data
+import angles
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from skimage.transform import rotate
@@ -44,7 +45,7 @@ def load_data(data_dir, normalize=True):
         untransformed_test = test_loader
 
 
-def get_model(prefix, version='final', di=None, llr=False):
+def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
     if di is not None:
         load_data(di)
 
@@ -80,6 +81,9 @@ def get_model(prefix, version='final', di=None, llr=False):
         map_location='cpu',
     ))
     # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
+    for i in range(add_iterations):
+        model.add_iteration()
+
     return model
 
 
@@ -105,7 +109,7 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
         for i in range(runs):
             test_loss = 0
             correct = 0
-            for x, y in test_loader:
+            for i,(x,y) in enumerate(test_loader):
                 # x, y = x.to(device), y.to(device)
                 output = model(x)
 
@@ -118,6 +122,8 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
                     pred = output.argmax(1, keepdim=True)
                     correct += pred.eq(y.view_as(pred)).sum().item()
                 test_loss += loss.item()
+
+                print(correct/(len(x)*(1+i)), end=' ', flush=True)
     
             test_loss /= len(test_loader.dataset)
             correct /= len(test_loader.dataset)
@@ -399,6 +405,8 @@ def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
     x = transformed
     theta = model.localization[0](model.pre_stn[0](x))
     stn1 = model.stn(theta, transformed)
+    print(-angles.get_moment_angle(transformed))
+    print(angles.angle_from_matrix(theta))
 
     fig, axs = plt.subplots(2, 3, figsize=(6,4), # sharex, sharey not necessary
                 gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
@@ -493,7 +501,6 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
 
 
 ### TRANSFORMATION STATISTICS ###
-
 def angle_from_matrix(thetas, all_transformations=False):
     # V1: Inverts in order to get parameters for the number's
     #     transformation, and decomposes into Scale Shear Rot
@@ -529,7 +536,7 @@ def distance_from_matrix(thetas):
     #     np.linalg.solve(theta[:,0:2], theta[:,2]) for theta in thetas
     # ])
     return np.array(thetas[:,:,2]) * np.array([-1, 1]) * 30
-    # This is probably wrong for translations beyond the third layer.
+    # This is probably wrong for translations beyond the first layer.
     # Is negated twice because the digits are transformed in the reverse
     # of predicted transform, and because the y-axis is inverted.
 
