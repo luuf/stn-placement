@@ -28,6 +28,7 @@ localization_dict = {
     'SVHN-d':   svhn.SVHN_dropout,
     'SVHN-s':   svhn.SVHN_small,
     'false':    False,
+    'plankton-l': plankton.plankton_large,
 }
 
 model_dict = {
