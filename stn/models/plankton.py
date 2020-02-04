@@ -12,7 +12,7 @@ class Flatten(nn.Module):
 
 ### LOCALIZATION ###
 
-class plankton_large(Classifier):
+class plankton_large(Localization):
     default_parameters = [32,32,32,32]
 
     def init_model(self, in_shape):
