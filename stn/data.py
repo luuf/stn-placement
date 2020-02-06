@@ -284,7 +284,7 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        self.moment_rotate = tv.transforms.RandomApply([moment_rotate], p=1)
+        self.moment_rotate = tv.transforms.RandomApply([moment_rotate], p=0)
         transforms = [tv.transforms.ToTensor(), self.moment_rotate]
 
         if transform:
