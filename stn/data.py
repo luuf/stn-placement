@@ -8,6 +8,7 @@ import os
 import PIL
 import skimage
 import matplotlib.pyplot as plt
+import angles
 
 # def oldmnist():
 #     (xtrn, ytrn), (xtst, ytst) = k.datasets.mnist.load_data()
@@ -88,25 +89,22 @@ def moment_rotate(im):
     theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2 # + np.pi/4
     # print('Theta', theta*180/np.pi)
 
-    i,j = np.indices(image.shape).astype(np.float32)
-    i *= np.cos(theta)
-    j *= np.sin(theta)
-    d = np.cos(theta)*x + np.sin(theta)*y
-    matrix = ((j+i-d) > 0).astype(np.float32)
-    # temp = matrix[int(x)][int(y)]
-    # matrix[int(x)][int(y)] = 2
-    # plt.figure()
-    # plt.imshow(matrix)
-    # matrix[int(x)][int(y)] = temp
-    matrix -= 0.5
-    if np.sum(image*matrix) > 0:
+    if angles.direction_of_skew(image, x, y, theta):
         theta += np.pi
-        # print('Added')
-    # print('Theta', theta*180/np.pi)
+
+    if angles.direction_of_skew(image, x, y, theta+np.pi/2):
+        flip = True
+        theta += np.pi/2
+    else:
+        flip = False
+
     theta += np.pi/4
 
     im = tvF.to_pil_image(im)
     im = tvF.rotate(im, -theta*180/np.pi, resample=PIL.Image.BILINEAR, center=(y,x))
+    if flip:
+        im = tvF.vflip(im)
+
     im = tvF.to_tensor(im)
     # plt.figure()
     # plt.imshow(im[0])
