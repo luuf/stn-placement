@@ -78,7 +78,7 @@ class RandomScale:
             fillcolor = 0)
 
 # http://raphael.candelier.fr/?blog=Image%20Moments
-def moment_rotate(im):
+def moment_rotate(im, third_moment=False):
     image = im.numpy()[0]
     # plt.imshow(image)
     m = skimage.measure.moments(image, 2)
@@ -89,14 +89,13 @@ def moment_rotate(im):
     theta = np.arctan(2*um/(ux-uy))/2 + (ux<uy)*np.pi/2 # + np.pi/4
     # print('Theta', theta*180/np.pi)
 
-    if angles.direction_of_skew(image, x, y, theta):
-        theta += np.pi
-
-    if angles.direction_of_skew(image, x, y, theta+np.pi/2):
-        flip = True
-        theta += np.pi/2
-    else:
-        flip = False
+    flip = False
+    if third_moment:
+        if angles.direction_of_skew(image, x, y, theta):
+            theta += np.pi
+        if angles.direction_of_skew(image, x, y, theta+np.pi/2):
+            flip = True
+            theta += np.pi/2
 
     theta += np.pi/4
 
