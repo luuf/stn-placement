@@ -105,7 +105,7 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False, deep=True):
+                 stn_placement, loop, data_tag, batchnorm=False, deep=False):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
