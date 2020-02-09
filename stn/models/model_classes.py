@@ -2,6 +2,7 @@ import torch as t
 import torch.nn.functional as F
 import numpy as np
 from functools import reduce
+from copy import deepcopy
 
 
 def get_output_shape(input_shape, module):
@@ -106,8 +107,9 @@ class Classifier(Modular_Model):
             transforms that should only happen for a few datasets.
     """
 
-    def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False, iterative=True, downsample=False):
+    def __init__(self, parameters, input_shape, localization_class,
+                 localization_parameters, stn_placement, loop, data_tag,
+                 batchnorm=False, deep=False, iterative=True, downsample=False):
         super().__init__(parameters)
 
         if data_tag in ['translate','clutter'] and localization_class:
@@ -152,23 +154,25 @@ class Classifier(Modular_Model):
             else:
                 self.batchnorm = t.nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
-            shape = downsampled_shape if downsample else input_shape
-            shape = get_output_shape(shape, self.pre_stn[0])
-            self.localization = t.nn.ModuleList(
-                [localization_class(localization_parameters, shape)])
-            if batchnorm and not loop:
-                self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
-            if scale_down_by != 1 and loop:
-                shape = get_output_shape(downsampled_shape, self.pre_stn[0])
-            for model in self.pre_stn[1:]:
-                if iterative and len(model) == 0:
+            shape = input_shape
+            self.localization = t.nn.ModuleList()
+            for i,model in enumerate(self.pre_stn):
+                if iterative and len(model) == 0 and i > 0:
                     self.localization.append(self.localization[-1])
-                    print('Doing the iterative thing')
                 else:
                     shape = get_output_shape(shape, model)
-                    self.localization.append(localization_class(localization_parameters, shape))
-                if batchnorm and not loop:
-                    self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
+                    if deep:
+                        self.localization.append(t.nn.Sequential(
+                            *deepcopy(self.pre_stn[:i+1]),
+                            localization_class(localization_parameters, shape)
+                        ))
+                    else:
+                        self.localization.append(
+                            localization_class(localization_parameters, shape))
+                    if batchnorm and not loop:
+                        self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
+                if i == 0 and loop and scale_down_by != 1:
+                    shape = get_output_shape(downsampled_shape, model)
         else:
             self.localization = None
 
@@ -188,6 +192,11 @@ class Classifier(Modular_Model):
         else:
             self.padding_mode = 'zeros'
         print('padding mode', self.padding_mode)
+
+        if deep:
+            self.final_layers = t.nn.Sequential(
+                *self.pre_stn, self.final_layers)
+            self.pre_stn = t.nn.ModuleList(t.nn.Sequential() for _ in self.pre_stn)
 
         self.output = self.out(np.prod(final_shape))
 

@@ -99,6 +99,17 @@ def get_parser():
     )
     parser.set_defaults(loop=False)
 
+    deep_parser = parser.add_mutually_exclusive_group(required=False)
+    deep_parser.add_argument(
+        "--deep", dest="deep", action="store_true",
+        help="""Include copies of stn-placement layers from the classification
+                network in the localization networks."""
+    )
+    deep_parser.add_argument(
+        '--no-deep', dest='deep', action='store_false',
+    )
+    parser.set_defaults(deep=False)
+
     rotate_parser = parser.add_mutually_exclusive_group(required=False)
     rotate_parser.add_argument(
         "--rotate", dest="rotate", action="store_true",
