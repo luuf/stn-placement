@@ -140,11 +140,23 @@ def get_parser():
     )
     parser.set_defaults(iterative=True)
 
+    moment_sched_parser = parser.add_mutually_exclusive_group(required=False)
+    moment_sched_parser.add_argument(
+        "--moment-sched", dest="moment_sched", action="store_true",
+        help="""Use image moments to display images of a particular orientation
+                more frequently, to enforce a canonical orientation.
+                Default: False"""
+    )
+    moment_sched_parser.add_argument(
+        "--no-moment-sched", dest="moment_sched", action="store_false",
+    )
+    parser.set_defaults(moment_sched=False)
+
     pretrain_parser = parser.add_mutually_exclusive_group(required=False)
     pretrain_parser.add_argument(
         "--pretrain", dest="pretrain", action="store_true",
         help="""Train the stn on moments instead of training the classifier.
-                Default: True"""
+                Default: False"""
     )
     pretrain_parser.add_argument(
         '--no-pretrain', dest='pretrain', action='store_false',
