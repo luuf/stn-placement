@@ -2,6 +2,7 @@ import torch as t
 import torch.nn.functional as F
 import numpy as np
 from functools import reduce
+from copy import deepcopy
 
 
 def get_output_shape(input_shape, module):
@@ -104,7 +105,7 @@ class Classifier(Modular_Model):
     """
 
     def __init__(self, parameters, input_shape, localization_class, localization_parameters,
-                 stn_placement, loop, data_tag, batchnorm=False):
+                 stn_placement, loop, data_tag, batchnorm=False, deep=True):
         super().__init__(parameters)
 
         layers = self.get_layers(input_shape)
@@ -139,9 +140,16 @@ class Classifier(Modular_Model):
                 # batchnorms with appropriate shapes are added in next loop
             shape = input_shape
             self.localization = t.nn.ModuleList()
-            for model in self.pre_stn:
+            for i,model in enumerate(self.pre_stn):
                 shape = get_output_shape(shape, model)
-                self.localization.append(localization_class(localization_parameters, shape))
+                if deep:
+                    self.localization.append(t.nn.Sequential(
+                        *deepcopy(self.pre_stn[:i+1]),
+                        localization_class(localization_parameters, shape)
+                    ))
+                else:
+                    self.localization.append(
+                        localization_class(localization_parameters, shape))
                 if batchnorm and not loop:
                     self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
         else:
@@ -172,6 +180,11 @@ class Classifier(Modular_Model):
         else:
             self.padding_mode = 'zeros'
         print('padding mode', self.padding_mode)
+
+        if deep:
+            self.final_layers = t.nn.Sequential(
+                *self.pre_stn, self.final_layers)
+            self.pre_stn = t.nn.ModuleList(t.nn.Sequential() for _ in self.pre_stn)
 
         self.output = self.out(np.prod(final_shape))
 
