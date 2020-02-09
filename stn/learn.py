@@ -1,150 +1,24 @@
 #%% Import
-import torch as t
+import torch
+import torch.optim as optim
+import torch.nn as nn
+import torch.nn.functional as F
 import torchvision as tv
 import numpy as np
 import time
 import eval
-from argparse import ArgumentParser
 from os import makedirs, path
 import data
 import models
+import parser
+import angles
 from datetime import datetime
 from functools import partial
 from ylvas_code.lrdecay_functions import StepLRBase
 
 print('Launched at', datetime.now())
 #%% Parse arguments
-parser = ArgumentParser()
-parser.add_argument(
-    "--dataset", '-d', type=str, default='mnist',
-    help="dataset to run on, default mnist"
-)
-parser.add_argument(
-    "--model", '-m', type=str, default='CNN',
-    help="Name of the model: CNN or FCN"
-)
-parser.add_argument(
-    "--model-parameters", nargs="*", type=int,
-    help="The number of neurons/filters to use in the model layers"
-)
-parser.add_argument(
-    "--localization", '-l', type=str, default='false',
-    help="Name of localization: FCN, CNN, small or none"
-)
-parser.add_argument(
-    "--localization-parameters", nargs="*", type=int,
-    help="The number of neurons/filters to use in the localization layers"
-)
-parser.add_argument(
-    "--stn-placement", '-p', nargs="*", type=int, default=[],
-    help="Number of layers to place stn after"
-)
-# parser.add_argument(
-#     "--batchnorm-placement", nargs="*", type=int, default=[],
-#     help="Indices of layers to place batch normalization before"
-# )
-parser.add_argument(
-    "--runs", type=int, default=1,
-    help="Number of time to run this experiment, default 1"
-)
-parser.add_argument(
-    "--name", '-n', type=str, default='result',
-    help="Name to save directory in"
-)
-parser.add_argument(
-    "--optimizer", '-o', type=str, default='sgd',
-    help="Name of the optimizer"
-)
-parser.add_argument(
-    "--lr", type=float, default=0.01,
-    help="Constant learning rate to use. Default is 0.01"
-)
-parser.add_argument(
-    "--switch-after-iterations", nargs="*", type=int, default=[np.inf],
-    help="How many iterations until learning rate is divided by divide-lr-by"
-)
-parser.add_argument(
-    "--loc-lr-multiplier", type=float, default=1,
-    help="How much less the localization lr is than the base lr"
-)
-parser.add_argument(
-    "--divide-lr-by", type=float, default=10,
-    help="Divide the lr by this number when changing lr"
-)
-parser.add_argument(
-    "--momentum", type=float, default="0",
-    help="How large the momentum is. (Use optimizer 'nesterov' for nesterov momentum)"
-)
-parser.add_argument(
-    "--weight-decay", "-w", type=float, default=0,
-)
-parser.add_argument(
-    "--batch-size", '-b', type=int, default=256,
-)
-
-epoch_parser = parser.add_mutually_exclusive_group(required=True)
-epoch_parser.add_argument(
-    "--epochs", '-e', type=int, dest="epochs",
-    help="Epochs to train on, default 640" # 640 = 150000 * 256 / 60000
-)
-epoch_parser.add_argument(
-    "--iterations", '-i', type=int, dest="iterations",
-    help="Epochs to train on, default 640" # 640 = 150000 * 256 / 60000
-)
-
-loop_parser = parser.add_mutually_exclusive_group(required=False)
-loop_parser.add_argument(
-    "--loop", dest="loop", action="store_true",
-    help="Use the stn-parameters to rotate the input, even if it's later"
-)
-loop_parser.add_argument(
-    '--no-loop', dest='loop', action='store_false',
-    help="Use the stn-parameters to rotate the featuremap it's placed after"
-)
-parser.set_defaults(loop=False)
-
-rotate_parser = parser.add_mutually_exclusive_group(required=False)
-rotate_parser.add_argument(
-    "--rotate", dest="rotate", action="store_true",
-    help="Rotate the data randomly before feeding it to the network"
-)
-rotate_parser.add_argument(
-    '--no-rotate', dest='rotate', action='store_false',
-)
-parser.set_defaults(rotate=False)
-
-normalize_parser = parser.add_mutually_exclusive_group(required=False)
-normalize_parser.add_argument(
-    "--normalize", dest="normalize", action="store_true",
-    help="Normalize the data to mean 0 std 1."
-)
-normalize_parser.add_argument(
-    '--no-normalize', dest='normalize', action='store_false',
-)
-parser.set_defaults(normalize=False)
-
-batchnorm_parser = parser.add_mutually_exclusive_group(required=False)
-batchnorm_parser.add_argument(
-    "--batchnorm", dest="batchnorm", action="store_true",
-    help="Use batchnorm after all STNs."
-)
-batchnorm_parser.add_argument(
-    '--no-batchnorm', dest='batchnorm', action='store_false',
-)
-parser.set_defaults(batchnorm=False)
-
-iterative_parser = parser.add_mutually_exclusive_group(required=False)
-iterative_parser.add_argument(
-    "--iterative", dest="iterative", action="store_true",
-    help="""If a number reoccurs in stn-placement,
-    it will reuse the localization parameters iff iterative. Default: True"""
-)
-iterative_parser.add_argument(
-    '--no-iterative', dest='iterative', action='store_false',
-)
-parser.set_defaults(iterative=True)
-
-args = parser.parse_args()
+args = parser.get_parser().parse_args()
 
 print("Parsed: ", args)
 
@@ -187,9 +61,9 @@ assert len(args.stn_placement) > 0 or not localization_class
 print('Using optimizer',args.optimizer)
 assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."
 optimizer_class = {
-    'sgd': partial(t.optim.SGD, momentum=args.momentum),
-    'nesterov': partial(t.optim.SGD, momentum=args.momentum, nesterov=True),
-    'adam': t.optim.Adam
+    'sgd': partial(optim.SGD, momentum=args.momentum),
+    'nesterov': partial(optim.SGD, momentum=args.momentum, nesterov=True),
+    'adam': optim.Adam
 }.get(args.optimizer)
 assert not optimizer_class is None, 'Could not find optimizer'
 
@@ -223,8 +97,9 @@ d = {
         'normalize': args.normalize,
         'batchnorm': args.batchnorm,
         'iterative': args.iterative,
+        'pretrain': args.pretrain,
     }
-t.save(d, directory + 'model_details')
+torch.save(d, directory + 'model_details')
 eval.d = d      # used when calling functions from eval
 
 
@@ -235,18 +110,18 @@ print('Will switch learning rate after',args.switch_after_iterations,'iterations
 
 def get_scheduler(optimizer):
     if len(args.switch_after_iterations) == 1:
-        return t.optim.lr_scheduler.StepLR(
+        return optim.lr_scheduler.StepLR(
             optimizer = optimizer,
             step_size = args.switch_after_iterations[0],
             gamma = 1/args.divide_lr_by
         )
-    return t.optim.lr_scheduler.MultiStepLR(
+    return optim.lr_scheduler.MultiStepLR(
         optimizer = optimizer,
         milestones = args.switch_after_iterations,
         gamma = 1/args.divide_lr_by,
     )
 
-device = t.device("cuda" if t.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 final_accuracies = {'train':[], 'test':[]}
 # These need to be defined before train and test
@@ -256,7 +131,7 @@ history = None
 
 is_svhn = 'svhn' in args.dataset.split('/')
 
-cross_entropy = t.nn.CrossEntropyLoss(reduction='mean')
+cross_entropy = nn.CrossEntropyLoss(reduction='mean')
 def train(epoch):
     model.train()
     for batch_idx, (x, y) in enumerate(train_loader):
@@ -267,7 +142,7 @@ def train(epoch):
 
         if is_svhn:
             loss = sum([cross_entropy(output[i],y[:,i]) for i in range(5)])
-            pred = t.stack(output, 2).argmax(1)
+            pred = torch.stack(output, 2).argmax(1)
             history['train_acc'][epoch] += pred.eq(y).all(1).sum().item()
         else:
             loss = cross_entropy(output, y)
@@ -277,7 +152,7 @@ def train(epoch):
         optimizer.step()
         history['train_loss'][epoch] += loss.item() * x.shape[0]
 
-        if batch_idx % 50 == 0 and device == t.device("cpu"):
+        if batch_idx % 50 == 0 and device == torch.device("cpu"):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(x), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -286,9 +161,9 @@ def train(epoch):
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
-cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
+cross_entropy_sum = nn.CrossEntropyLoss(reduction='sum')
 def test(epoch = None):
-    with t.no_grad():
+    with torch.no_grad():
         model.eval()
         test_loss = 0
         correct = 0
@@ -299,7 +174,7 @@ def test(epoch = None):
 
             if is_svhn:
                 loss = sum([cross_entropy_sum(output[i],y[:,i]) for i in range(5)])
-                pred = t.stack(output, 2).argmax(1)
+                pred = torch.stack(output, 2).argmax(1)
                 correct += pred.eq(y).all(1).sum().item()
             else:
                 loss = cross_entropy_sum(output, y)
@@ -314,6 +189,51 @@ def test(epoch = None):
         history['test_loss'][epoch] = test_loss
         history['test_acc'][epoch] = correct
     return test_loss, correct
+
+def pretrain(epoch):
+    model.train()
+    for batch_idx, (x, _) in enumerate(train_loader):
+        moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2].to(device)
+        x = x.to(device)
+        optimizer.zero_grad()
+
+        theta = model(x)[:,0:2,0:2]
+
+        #stn_angle = angles.angle_from_matrix(theta)
+        #loss = t.mean(((stn_angle-moment_angle)%(2*np.pi))**2)
+        #det = torch.abs(torch.det(theta))
+        loss = torch.mean(torch.abs(theta-moment_theta)) #+ torch.mean(det + 1/det) - 2
+        loss.backward()
+        optimizer.step()
+        history['train_loss'][epoch] += loss.item() * x.shape[0]
+
+        if batch_idx % 50 == 0 and device == torch.device("cpu"):
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_idx * len(x), len(train_loader.dataset),
+                100. * batch_idx / len(train_loader), loss.item()))
+
+        scheduler.step()
+    history['train_loss'][epoch] /= len(train_loader.dataset)
+
+def pretest(epoch):
+    with torch.no_grad():
+        model.eval()
+        test_loss = 0
+        for x, _ in test_loader:
+            moment_theta = angles.matrix_from_moment(x)[:,0:2,0:2].to(device)
+            x = x.to(device)
+
+            theta = model(x)[:,0:2,0:2]
+
+            #det = torch.abs(torch.det(theta))
+            loss = torch.sum(torch.abs(theta-moment_theta)) #+ 4*torch.sum(det + 1/det - 2)
+            test_loss += loss.item()
+    
+    test_loss /= 4*len(test_loader.dataset)
+
+    if not epoch is None:
+        history['test_loss'][epoch] = test_loss
+    return test_loss
 
 #%% Run
 for run in range(args.runs):
@@ -334,12 +254,19 @@ for run in range(args.runs):
         args.loop, args.dataset, args.batchnorm, args.iterative
     )
     model = model.to(device)
+    model.pretrain = args.pretrain
+
+    if args.load_model:
+        model.load_state_dict(torch.load(
+            args.load_model, map_location=device
+        ))
 
     # Train model
-    params = [{'params': model.pre_stn.parameters()},
-              {'params': model.final_layers.parameters()},
+    params = [{'params': model.final_layers.parameters()},
               {'params': model.output.parameters()}]
     if localization_class:
+        params.append({'params': model.pre_stn.parameters(),
+                        'lr': args.lr * args.pre_stn_multiplier})
         params.append({'params': model.localization.parameters(),
                        'lr': args.lr * args.loc_lr_multiplier})
 
@@ -351,31 +278,17 @@ for run in range(args.runs):
     scheduler = get_scheduler(optimizer)
     start_time = time.time()
 
-    train_loader.dataset.set_moment_probability(1)
-    test_loader.dataset.set_moment_probability(1)
     for epoch in range(epochs):
         if epoch % 100 == 0 and epoch != 0:
             # TODO: ADD SAVING OF OPTIMIZER AND OTHER POTENTIALLY RELEVANT THINGS
-            t.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
-            print('Saved model')
-        train(epoch)
-        test(epoch)
+            torch.save(model.state_dict(), directory + prefix + 'ckpt' + str(epoch))
+        if args.pretrain:
+            pretrain(epoch)
+            pretest(epoch)
+        else:
+            train(epoch)
+            test(epoch)
         if epoch % 10 == 0:
-            if epoch == 0:
-                train_loader.dataset.set_moment_probability(0.5)
-                test_loader.dataset.set_moment_probability(0.5)
-            if epoch == 10:
-                train_loader.dataset.set_moment_probability(0.3)
-                test_loader.dataset.set_moment_probability(0.3)
-            if epoch == 40:
-                train_loader.dataset.set_moment_probability(0.2)
-                test_loader.dataset.set_moment_probability(0.2)
-            if epoch == 100:
-                train_loader.dataset.set_moment_probability(0.1)
-                test_loader.dataset.set_moment_probability(0.1)
-            if epoch == 200:
-                train_loader.dataset.set_moment_probability(0)
-                test_loader.dataset.set_moment_probability(0)
             print(
                 'Epoch', epoch, '\n'
                 'Train loss {} acc {} \n Test loss {} acc {}'.format(
@@ -413,8 +326,8 @@ for run in range(args.runs):
     final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
-    t.save(model.state_dict(), directory + prefix + 'final')
-    t.save(history, directory + prefix + 'history')
+    torch.save(model.state_dict(), directory + prefix + 'final')
+    torch.save(history, directory + prefix + 'history')
 
 for run in range(args.runs):
     print('Train accuracy:', final_accuracies['train'][run])

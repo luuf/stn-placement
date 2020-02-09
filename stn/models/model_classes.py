@@ -229,6 +229,8 @@ class Classifier(Modular_Model):
                     x = self.stn(theta[:,0:2,:], input_image)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
+                if hasattr(self, 'pretrain') and self.pretrain:
+                    return theta[:,0:2,:]
                 x = m(x)
             else:
                 for i,m in enumerate(self.pre_stn):
@@ -244,3 +246,9 @@ class Classifier(Modular_Model):
         x = self.final_layers(x)
 
         return self.output(x.view(x.size(0),-1))
+
+    def add_iteration(self):
+        assert not self.batchnorm
+        modules = self.loop_models if self.loop_models else self.pre_stn
+        modules.append(modules[-1])
+        self.localization.append(self.localization[-1])
