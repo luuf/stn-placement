@@ -103,6 +103,17 @@ loop_parser.add_argument(
 )
 parser.set_defaults(loop=False)
 
+deep_parser = parser.add_mutually_exclusive_group(required=False)
+deep_parser.add_argument(
+    "--deep", dest="deep", action="store_true",
+    help="""Include copies of stn-placement layers from the classification
+            network in the localization networks."""
+)
+deep_parser.add_argument(
+    '--no-deep', dest='deep', action='store_false',
+)
+parser.set_defaults(deep=False)
+
 rotate_parser = parser.add_mutually_exclusive_group(required=False)
 rotate_parser.add_argument(
     "--rotate", dest="rotate", action="store_true",
@@ -182,35 +193,35 @@ optimizer_class = {
 }.get(args.optimizer)
 assert not optimizer_class is None, 'Could not find optimizer'
 
-# user must either specify a localization, or keep the
-# defaultvalue/assign 0-value to loop and stn_placement
-assert localization_class or (not args.loop and (
-        not args.stn_placement or args.stn_placement == [0]))
+assert localization_class or (
+    args.stn_placement == [] and not (args.loop or args.deep))
+assert not (args.loop and args.deep)
 
 directory = args.name + '/'
 makedirs(directory, exist_ok=True)
 
 # Save model details
 d = {
-        'dataset': args.dataset,
-        'model': args.model,
+        'dataset':          args.dataset,
+        'model':            args.model,
         'model_parameters': args.model_parameters,
-        'localization': args.localization,
+        'localization':     args.localization,
         'localization_parameters': args.localization_parameters,
-        'stn_placement': args.stn_placement,
-        'optimizer': args.optimizer,
-        'learning_rate': args.lr,
+        'stn_placement':    args.stn_placement,
+        'optimizer':        args.optimizer,
+        'learning_rate':    args.lr,
         'switch_after_iterations': args.switch_after_iterations,
         'loc_lr_multiplier': args.loc_lr_multiplier,
-        'divide_lr_by': args.divide_lr_by,
-        'momentum': args.momentum,
-        'weight_decay': args.weight_decay,
-        'batch_size': args.batch_size,
-        'epochs': epochs,
-        'loop': args.loop,
-        'rotate': args.rotate,
-        'normalize': args.normalize,
-        'batchnorm': args.batchnorm,
+        'divide_lr_by':     args.divide_lr_by,
+        'momentum':         args.momentum,
+        'weight_decay':     args.weight_decay,
+        'batch_size':       args.batch_size,
+        'epochs':           epochs,
+        'loop':             args.loop,
+        'rotate':           args.rotate,
+        'normalize':        args.normalize,
+        'batchnorm':        args.batchnorm,
+        'deep':             args.deep
     }
 t.save(d, directory + 'model_details')
 eval.d = d      # used when calling functions from eval
@@ -319,7 +330,7 @@ for run in range(args.runs):
     model = model_class(
         args.model_parameters, input_shape, localization_class,
         args.localization_parameters, args.stn_placement,
-        args.loop, args.dataset, args.batchnorm,
+        args.loop, args.dataset, args.batchnorm, deep=args.deep
     )
     model = model.to(device)
 
