@@ -98,6 +98,7 @@ d = {
         'deep':             args.deep,
         'iterative':        args.iterative,
         'pretrain':         args.pretrain,
+        'add_iteration':    args.add_iteration,
     }
 torch.save(d, directory + 'model_details')
 eval.d = d      # used when calling functions from eval
@@ -158,6 +159,10 @@ def train(epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
 
         scheduler.step()
+        if args.add_iteration and scheduler.last_epoch == args.add_iteration[0]:
+            print('Iteration is', scheduler.last_epoch, ': adding iteration')
+            model.add_iteration()
+            del args.add_iteration[0]
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -213,6 +218,10 @@ def pretrain(epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
 
         scheduler.step()
+        if args.add_iteration and scheduler.last_epoch == args.add_iteration[0]:
+            print('Iteration is', scheduler.last_epoch, ': adding iteration')
+            model.add_iteration()
+            del args.add_iteration[0]
     history['train_loss'][epoch] /= len(train_loader.dataset)
 
 def pretest(epoch):

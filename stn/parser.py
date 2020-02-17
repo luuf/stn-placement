@@ -77,6 +77,10 @@ def get_parser():
         "--load-model", type=str, default="",
         help="Initialize the model to that of the path"
     )
+    parser.add_argument(
+        "--add-iteration", nargs="*", type=int, default = [],
+        help="Add extra st-iterations after this many iterations"
+    )
 
     epoch_parser = parser.add_mutually_exclusive_group(required=True)
     epoch_parser.add_argument(
