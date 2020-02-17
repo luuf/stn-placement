@@ -12,6 +12,9 @@ from matplotlib.cm import get_cmap
 from skimage.transform import rotate
 from os import path
 from functools import partial
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import numpy as np
 
 directory, d, train_loader, test_loader  = None, None, None, None
 
@@ -90,7 +93,7 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
 ### COMPUTE AND PRINT ACCURACY AND LOSS ###
 
 cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
-def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
+def test_model(model=0, di=None, test_data=None, runs=1):
     global test_loader
 
     if type(model) == int:
@@ -102,6 +105,8 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
 
     losses = []
     accs = []
+    true_labels = np.array([])
+    predicted_labels = np.array([])
 
     with t.no_grad():
         model.eval()
@@ -123,6 +128,9 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
                     correct += pred.eq(y.view_as(pred)).sum().item()
                 test_loss += loss.item()
 
+                true_labels = np.concatenate((true_labels, y.reshape(-1)))
+                predicted_labels = np.concatenate((predicted_labels, pred.reshape(-1)))
+
                 print(correct/(len(x)*(1+i)), end=' ', flush=True)
     
             test_loss /= len(test_loader.dataset)
@@ -133,7 +141,30 @@ def test_model(model=0, di=None, normalize=True, test_data=None, runs=1):
 
     print('Average loss:', sum(losses) / runs)
     print('Average accuracy:', sum(accs) / runs)
-    return losses, accs
+    return true_labels, predicted_labels
+
+def get_confusion_matrix(model=0, di=None, true_labels=None, predicted_labels=None):
+    sns.set_style('whitegrid', {'axes.grid': False})
+    cmap = plt.cm.Blues
+
+    if true_labels is None:
+        true_labels, predicted_labels = test_model(model, di)
+
+    fig, ax = plt.subplots(1,1, figsize=[4,4])
+
+    cm = confusion_matrix(true_labels, predicted_labels)
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    cax = ax.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=1.)
+    ax.grid(False)
+    plt.colorbar(cax, ax=ax)
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_ylabel('True label')
+    ax.set_xlabel('Predicted label')
+    plt.show()
+
+    return true_labels, predicted_labels
 
 def running_mean(l, w):
     if w <= 0:
