@@ -217,9 +217,9 @@ class Classifier(Modular_Model):
     
     def forward(self, x):
         if self.localization:
+            theta = self.base_theta
             if self.loop_models:
                 input_image = x
-                theta = self.base_theta
                 #x = self.downsampler(x)
                 #x = self.stn(theta.repeat(x.size(0),1,1)[:,0:2,:], x)
                 for i,m in enumerate(self.loop_models):
@@ -243,8 +243,16 @@ class Classifier(Modular_Model):
                 x = m(x)
             else:
                 for i,m in enumerate(self.pre_stn):
-                    loc_input = m(x)
-                    x = self.stn(self.localization[i](loc_input), loc_input)
+                    if i == 0 or len(m) > 0:
+                        loc_input = m(x)
+                        loc_output = self.localization[i](loc_input)
+                        theta[:,0:2,:] = loc_output
+                    else:
+                        loc_output = self.localization[i](x)
+                        mat = F.pad(loc_output, (0,3)).view((-1,3,3))
+                        mat[:,2,2] = 1
+                        theta = t.matmul(theta,mat)
+                    x = self.stn(theta[:,0:2,:], loc_input)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
 
@@ -258,6 +266,8 @@ class Classifier(Modular_Model):
 
     def add_iteration(self):
         assert not self.batchnorm
-        modules = self.loop_models if self.loop_models else self.pre_stn
-        modules.append(modules[-1])
+        if self.loop_models:
+            self.loop_models.append(self.loop_models[-1])
+        else:
+            self.pre_stn.append(t.nn.Sequential())
         self.localization.append(self.localization[-1])
