@@ -137,12 +137,6 @@ class Classifier(Modular_Model):
         if loop:
             self.loop_models = nn.ModuleList(
                     [nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
-            self.register_buffer(
-                'base_theta',
-                torch.tensor(np.identity(3, dtype=np.float32))
-            )
-            # I need to define theta as a tensor before forward, so that
-            # it's automatically ported to device together with model
         else:
             self.loop_models = None
 
@@ -200,6 +194,13 @@ class Classifier(Modular_Model):
             self.pre_stn = nn.ModuleList(nn.Sequential() for _ in self.pre_stn)
 
         self.output = self.out(np.prod(final_shape))
+
+        self.register_buffer(
+            'base_theta',
+            torch.tensor(np.identity(3, dtype=np.float32))
+        )
+        # I need to define theta as a tensor before forward, so that
+        # it's automatically ported to device together with model
 
         #self.downsampler = downsampler
 
