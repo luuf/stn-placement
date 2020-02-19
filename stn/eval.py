@@ -52,11 +52,7 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
     if di is not None:
         load_data(di)
 
-    batchnorm = d.get('batchnorm')
-
-    if batchnorm is None:
-        print('Assuming no batchnorm')
-        batchnorm = False
+    
 
     # localization_class = partial(
     #     models.localization_dict[d['localization']],
@@ -75,7 +71,8 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
         stn_placement = d['stn_placement'],
         loop = d['loop'],
         data_tag = d['dataset'],
-        batchnorm = batchnorm,
+        batchnorm = d.get('batchnorm', False),
+        deep = d.get('deep', False),
         # mean = train_loader.dataset.mean
     )
     
@@ -144,11 +141,11 @@ def test_model(model=0, di=None, test_data=None, runs=1):
     return true_labels, predicted_labels
 
 def get_confusion_matrix(model=0, di=None, true_labels=None, predicted_labels=None):
-    sns.set_style('whitegrid', {'axes.grid': False})
-    cmap = plt.cm.Blues
-
     if true_labels is None:
         true_labels, predicted_labels = test_model(model, di)
+
+    sns.set_style('whitegrid', {'axes.grid': False})
+    cmap = plt.cm.Blues
 
     fig, ax = plt.subplots(1,1, figsize=[4,4])
 
@@ -165,6 +162,29 @@ def get_confusion_matrix(model=0, di=None, true_labels=None, predicted_labels=No
     plt.show()
 
     return true_labels, predicted_labels
+
+def accuracy_v_nexamples(model=0, di=None, true_labels=None, predicted_labels=None):
+    if true_labels is None:
+        true_labels, predicted_labels = test_model(model, di)
+
+    nexamples = np.bincount(true_labels.astype(int))
+    cm = confusion_matrix(true_labels, predicted_labels)
+    falsepositives_n = cm.sum(axis=0) - [cm[i,i] for i in range(len(cm))]
+    falsepositives_r = falsepositives_n / cm.sum(axis=0)
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    accuracy = [cm[i,i] for i in range(len(nexamples))]
+
+    plt.scatter(nexamples, accuracy, s=8)
+    plt.scatter(nexamples, falsepositives_r, s=8)
+    plt.figure()
+    plt.scatter(np.log2(nexamples), accuracy, s=8)
+    plt.scatter(np.log2(nexamples), falsepositives_r, s=8)
+    plt.figure()
+    plt.scatter(nexamples, falsepositives_n, s=8)
+    plt.figure()
+    plt.scatter(np.log2(nexamples), falsepositives_n, s=8)
+    plt.show()
+
 
 def running_mean(l, w):
     if w <= 0:
