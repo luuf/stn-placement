@@ -76,11 +76,11 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
         # mean = train_loader.dataset.mean
     )
     
-    model.load_state_dict(t.load(
+    model.load_state_dict(torch.load(
         directory+'/'+str(prefix)+version,
         map_location='cpu',
     ))
-    # model.load_state_dict(t.load(directory+prefix+"ckpt"+"100"))
+    # model.load_state_dict(torch.load(directory+prefix+"ckpt"+"100"))
     for i in range(add_iterations):
         model.add_iteration()
 
@@ -267,7 +267,7 @@ def test_multi_stn(model=0, n=4, di=None, version='final', param=[]):
             batch = batch * normalizer.std[0] + normalizer.mean[0]
         batch = torch.tensor([
             rotate(batch[0][0], angle) for angle in param
-        ], dtype=t.float).reshape(batch.shape)
+        ], dtype=torch.float).reshape(batch.shape)
         if d['normalize']:
             batch = (batch - normalizer.mean[0]) / normalizer.std[0]
 
@@ -354,7 +354,7 @@ def compare_all_labels(model=0, di=None, normalization=True,
     angles = np.random.uniform(-90, 90, 3*10)
     rot_x = torch.tensor([
         rotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
-    ], dtype=t.float).reshape(-1, 1, 28, 28)
+    ], dtype=torch.float).reshape(-1, 1, 28, 28)
     if normalization:
         rot_x = (rot_x - 0.1307) / 0.3081
 
@@ -448,7 +448,7 @@ def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
         param = np.random.uniform(-180,180,3)
     transformed = torch.tensor([
         rotate(im[0][0], angle) for angle in param
-    ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
+    ], dtype=torch.float).reshape(-1,1,im.size(2),im.size(3))
     if d['normalize']:
         transformed = (transformed - normalizer.mean[0]) / normalizer.std[0]
 
@@ -488,14 +488,14 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
             param = np.random.uniform(-90,90,3)
         transformed = torch.tensor([
             rotate(im[0][0], angle) for angle in param
-        ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
+        ], dtype=torch.float).reshape(-1,1,im.size(2),im.size(3))
         if normalize or normalize is None:
             transformed = (transformed - 0.1307) / 0.3081
     elif transform == 'translate':
         if len(param) == 0:
             param = np.random.randint(-16,17,(3,2))
         noise = data.MNIST_noise(60)
-        transformed = torch.zeros(3, 1, 60, 60, dtype=t.float)
+        transformed = torch.zeros(3, 1, 60, 60, dtype=torch.float)
         for i, (xd, yd) in enumerate(param):
             transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
             transformed[i] = noise(transformed[i])
@@ -768,14 +768,14 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                     transformation = np.append(transformation, angle)
                     transformed = torch.tensor([
                         rotate(im[0], a) for im, a in zip(x, angle)
-                    ], dtype=t.float).reshape(-1, 1, 28, 28)
+                    ], dtype=torch.float).reshape(-1, 1, 28, 28)
                     if normalize or normalize is None:
                         transformed = (transformed - 0.1307) / 0.3081
 
                 elif transform == 'translate':
                     distance = np.random.randint(-16, 17, (x.shape[0], 2))
                     transformation = np.append(transformation, distance, axis=0)
-                    transformed = torch.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
+                    transformed = torch.zeros(x.shape[0], 1, 60, 60, dtype=torch.float)
                     for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
                         transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
                         transformed[i] = noise(transformed[i])
@@ -856,10 +856,10 @@ def average_n(res, n):
 
 def hook(x):
     print('Shape', x.shape)
-    print('Median abs', torch.median(t.abs(x)))
+    print('Median abs', torch.median(torch.abs(x)))
     print('Max', torch.max(x), 'Min', torch.min(x))
     summed = torch.sum(x, dim=0)
-    print('Median sum', torch.median(t.abs(summed)))
+    print('Median sum', torch.median(torch.abs(summed)))
     print('Max', torch.max(summed), 'Min', torch.min(summed))
     print('Vector length', torch.norm(summed.view(-1)))
 
@@ -908,19 +908,19 @@ def get_gradients(model=0, di=None, version='final'):
                 print('Pre stn', i)
                 for p in m.parameters():
                     print(p.grad.shape)
-                    print(t.norm(p.grad.view(-1)))
+                    print(torch.norm(p.grad.view(-1)))
                     print()
 
                 print('Localization', i)
                 for p in l.parameters():
                     print(p.grad.shape)
-                    print(t.norm(p.grad.view(-1)))
+                    print(torch.norm(p.grad.view(-1)))
                     print()
 
             print('Final layers')
             for p in model.final_layers.parameters():
                 print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
+                print(torch.norm(p.grad.view(-1)))
                 print()
     else:
         model = get_model(model, version)
@@ -933,17 +933,17 @@ def get_gradients(model=0, di=None, version='final'):
             print('Pre stn', i)
             for p in m.parameters():
                 print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
+                print(torch.norm(p.grad.view(-1)))
                 print()
 
             print('Localization', i)
             for p in l.parameters():
                 print(p.grad.shape)
-                print(t.norm(p.grad.view(-1)))
+                print(torch.norm(p.grad.view(-1)))
                 print()
 
         print('Final layers')
         for p in model.final_layers.parameters():
             print(p.grad.shape)
-            print(t.norm(p.grad.view(-1)))
+            print(torch.norm(p.grad.view(-1)))
             print()
