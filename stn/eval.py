@@ -1,5 +1,5 @@
 #%%
-import torch as t
+import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as tvF
 import PIL.Image
@@ -26,7 +26,7 @@ def load_data(data_dir, normalize=True):
     global directory, d, train_loader, test_loader, untransformed_test
     directory = '../experiments/'+data_dir
 
-    d = t.load(directory+"/model_details")
+    d = torch.load(directory+"/model_details")
     if 'normalize' in d:
         normalize = d['normalize']
     elif d['dataset'] == 'translate':
@@ -89,7 +89,7 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
 
 ### COMPUTE AND PRINT ACCURACY AND LOSS ###
 
-cross_entropy_sum = t.nn.CrossEntropyLoss(reduction='sum')
+cross_entropy_sum = torch.nn.CrossEntropyLoss(reduction='sum')
 def test_model(model=0, di=None, test_data=None, runs=1):
     global test_loader
 
@@ -105,7 +105,7 @@ def test_model(model=0, di=None, test_data=None, runs=1):
     true_labels = np.array([])
     predicted_labels = np.array([])
 
-    with t.no_grad():
+    with torch.no_grad():
         model.eval()
 
         for i in range(runs):
@@ -117,7 +117,7 @@ def test_model(model=0, di=None, test_data=None, runs=1):
 
                 if is_svhn:
                     loss = sum([cross_entropy_sum(output[i],y[:,i]) for i in range(5)])
-                    pred = t.stack(output, 2).argmax(1)
+                    pred = torch.stack(output, 2).argmax(1)
                     correct += pred.eq(y).all(1).sum().item()
                 else:
                     loss = cross_entropy_sum(output, y)
@@ -206,7 +206,7 @@ def print_history(prefixes=[0,1,2],loss=False,start=0,di=None,window=0,show=True
     if type(prefixes) == int:
         prefixes = [prefixes]
     for prefix in prefixes:
-        history = t.load(directory + '/' + str(prefix) + "history")
+        history = torch.load(directory + '/' + str(prefix) + "history")
         print('PREFIX', prefix)
         print('Max test_acc', np.argmax(history['test_acc']), np.max(history['test_acc']))
         print('Max train_acc', np.argmax(history['train_acc']), np.max(history['train_acc']))
@@ -234,8 +234,8 @@ def test_stn(model=0, n=4, di=None, version='final'):
     theta = model.localization[0](model.pre_stn[0](batch))
     transformed_batch = model.stn(theta, batch)
 
-    minimum = t.min(batch)
-    maximum = t.max(batch)
+    minimum = torch.min(batch)
+    maximum = torch.max(batch)
 
     for image,transformed in zip(batch, transformed_batch):
         image = (image - minimum) / (maximum - minimum)
@@ -265,7 +265,7 @@ def test_multi_stn(model=0, n=4, di=None, version='final', param=[]):
         if d['normalize']:
             normalizer = test_loader.dataset.transform.transforms[-1]
             batch = batch * normalizer.std[0] + normalizer.mean[0]
-        batch = t.tensor([
+        batch = torch.tensor([
             rotate(batch[0][0], angle) for angle in param
         ], dtype=t.float).reshape(batch.shape)
         if d['normalize']:
@@ -283,14 +283,14 @@ def test_multi_stn(model=0, n=4, di=None, version='final', param=[]):
     else:
         transformed = [batch]
         serial = [batch]
-        theta = t.eye(3)
+        theta = torch.eye(3)
         x = batch
         for i,m in enumerate(model.loop_models):
             localization_output = model.localization[i](m(x))
             serial.append(model.stn(localization_output, serial[-1]))
             mat = F.pad(localization_output, (0,3)).view((-1,3,3))
             mat[:,2,2] = 1
-            theta = t.matmul(theta,mat)
+            theta = torch.matmul(theta,mat)
             # note that the new transformation is multiplied
             # from the right. Since the parameters are the
             # inverse of the parameters that would be applied
@@ -304,8 +304,8 @@ def test_multi_stn(model=0, n=4, di=None, version='final', param=[]):
             if d.get('batchnorm'):
                 x = model.batchnorm[i](x)
 
-    minimum = t.min(batch)
-    maximum = t.max(batch)
+    minimum = torch.min(batch)
+    maximum = torch.max(batch)
 
     k = len(transformed)
     f, axs = plt.subplots(2,2,figsize=(10,10))
@@ -341,7 +341,7 @@ def compare_all_labels(model=0, di=None, normalization=True,
 
     # _, unrotated_test = data.data_dict[d['dataset']](
     #     rotate=False, normalize=False) 
-    images = t.zeros(10,1,28,28)
+    images = torch.zeros(10,1,28,28)
     numbers = set()
     for x,y in untransformed_test:
         for im,l in zip(x,y):
@@ -352,7 +352,7 @@ def compare_all_labels(model=0, di=None, normalization=True,
             break
 
     angles = np.random.uniform(-90, 90, 3*10)
-    rot_x = t.tensor([
+    rot_x = torch.tensor([
         rotate(images[i // 3][0], angle) for i, angle in enumerate(angles)
     ], dtype=t.float).reshape(-1, 1, 28, 28)
     if normalization:
@@ -415,8 +415,8 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     plt.gray()
     fig, axs = plt.subplots(3, n, sharex='col', sharey='row', figsize=(n,3),
                             gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
-    minimum = t.min(batch)
-    maximum = t.max(batch)
+    minimum = torch.min(batch)
+    maximum = torch.max(batch)
     batch = (batch.detach() - minimum) / (maximum - minimum)
     stn1 = (stn1.detach() - minimum) / (maximum - minimum)
     stn2 = (stn2.detach() - minimum) / (maximum - minimum)
@@ -446,7 +446,7 @@ def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
 
     if len(param) == 0:
         param = np.random.uniform(-180,180,3)
-    transformed = t.tensor([
+    transformed = torch.tensor([
         rotate(im[0][0], angle) for angle in param
     ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
     if d['normalize']:
@@ -486,7 +486,7 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
     if transform == 'rotate':
         if len(param) == 0:
             param = np.random.uniform(-90,90,3)
-        transformed = t.tensor([
+        transformed = torch.tensor([
             rotate(im[0][0], angle) for angle in param
         ], dtype=t.float).reshape(-1,1,im.size(2),im.size(3))
         if normalize or normalize is None:
@@ -495,7 +495,7 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
         if len(param) == 0:
             param = np.random.randint(-16,17,(3,2))
         noise = data.MNIST_noise(60)
-        transformed = t.zeros(3, 1, 60, 60, dtype=t.float)
+        transformed = torch.zeros(3, 1, 60, 60, dtype=t.float)
         for i, (xd, yd) in enumerate(param):
             transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
             transformed[i] = noise(transformed[i])
@@ -558,7 +558,7 @@ def angle_from_matrix(thetas, all_transformations=False):
     mat = F.pad(thetas, (0, 3)).view(-1,3,3)
     mat[:,2,2] = 1
 
-    transform = t.inverse(mat)
+    transform = torch.inverse(mat)
 
     angle = (np.arctan2(transform[:,0,1], transform[:,0,0])) * 180 / np.pi
     # negated twice because the y-axis is inverted and 
@@ -737,7 +737,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
     elif 'untransformed_test' not in globals():
         _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
 
-    device = t.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
 
     transformation = np.zeros((0,2) if transform == 'translate' else (0,1))
     tran_by_label = []
@@ -755,7 +755,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
 
     labels = np.array([])
 
-    with t.no_grad():
+    with torch.no_grad():
         model.eval()
         if transform == 'translate':
             noise = data.MNIST_noise(60)
@@ -766,7 +766,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                 if transform == 'rotate':
                     angle = np.random.uniform(-90, 90, x.shape[0])
                     transformation = np.append(transformation, angle)
-                    transformed = t.tensor([
+                    transformed = torch.tensor([
                         rotate(im[0], a) for im, a in zip(x, angle)
                     ], dtype=t.float).reshape(-1, 1, 28, 28)
                     if normalize or normalize is None:
@@ -775,7 +775,7 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                 elif transform == 'translate':
                     distance = np.random.randint(-16, 17, (x.shape[0], 2))
                     transformation = np.append(transformation, distance, axis=0)
-                    transformed = t.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
+                    transformed = torch.zeros(x.shape[0], 1, 60, 60, dtype=t.float)
                     for i,(im,(xd,yd)) in enumerate(zip(x, distance)):
                         transformed[i, 0, 16-yd : 44-yd, 16+xd : 44+xd] = im[0]
                         transformed[i] = noise(transformed[i])
@@ -856,12 +856,12 @@ def average_n(res, n):
 
 def hook(x):
     print('Shape', x.shape)
-    print('Median abs', t.median(t.abs(x)))
-    print('Max', t.max(x), 'Min', t.min(x))
-    summed = t.sum(x, dim=0)
-    print('Median sum', t.median(t.abs(summed)))
-    print('Max', t.max(summed), 'Min', t.min(summed))
-    print('Vector length', t.norm(summed.view(-1)))
+    print('Median abs', torch.median(t.abs(x)))
+    print('Max', torch.max(x), 'Min', torch.min(x))
+    summed = torch.sum(x, dim=0)
+    print('Median sum', torch.median(t.abs(summed)))
+    print('Max', torch.max(summed), 'Min', torch.min(summed))
+    print('Vector length', torch.norm(summed.view(-1)))
 
 def module_hook(module, grad_input, grad_output):
     print('module', module)
@@ -879,7 +879,7 @@ def get_gradients(model=0, di=None, version='final'):
         for model in [get_model(model, version, llr=llr) for llr in [False,0]]:
             model.train()
             x = input_image
-            theta = t.eye(3)
+            theta = torch.eye(3)
             for i,m in enumerate(model.loop_models):
                 loc_input = m(x)
                 # if x.requires_grad:
@@ -889,7 +889,7 @@ def get_gradients(model=0, di=None, version='final'):
                 # loc_output.register_hook(lambda a: print('loc output', hook(a), '\n'))
                 mat = F.pad(loc_output, (0,3)).view((-1,3,3))
                 mat[:,2,2] = 1
-                theta = t.matmul(theta,mat)
+                theta = torch.matmul(theta,mat)
                 x = model.stn(theta[:,0:2,:], input_image)
                 # x.register_hook(lambda a: print('stn out', hook(a),'\n'))
             x = m(x)

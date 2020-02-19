@@ -1,10 +1,10 @@
 #%%
-import torch as t
+import torch
 
 def change_modeldetails(data_dir, normalize=None, batchnorm=None):
     directory = '../../experiments/'+data_dir
 
-    d = t.load(directory+"/model_details")
+    d = torch.load(directory+"/model_details")
     print('d1', d)
     if normalize is not None:
         assert d.get('normalize') is None
@@ -15,7 +15,7 @@ def change_modeldetails(data_dir, normalize=None, batchnorm=None):
 
     print('d2', d)
 
-    t.save(
+    torch.save(
         d, # why is it not saved ??
         directory + '/model_details',
     )

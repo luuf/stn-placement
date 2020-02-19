@@ -1,6 +1,4 @@
 #%% Import
-import torch as t
-import torchvision as tv
 import numpy as np
 import time
 import data

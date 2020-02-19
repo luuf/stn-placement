@@ -1,8 +1,10 @@
 #%%
 import numpy as np
-import torch as t
-import torchvision as tv
+import torch
+import torch.utils.data as D
+import torchvision.transforms as tvT
 import torchvision.transforms.functional as tvF
+import torchvision.datasets as tvD
 import pandas as pd
 import os
 import PIL
@@ -28,14 +30,14 @@ class MNIST_noise:
         self.imsize = imsize
         self.scale = scale
         # padding = (imsize-6) // 2
-        transform = tv.transforms.Compose([
-            tv.transforms.RandomCrop(6),
-            # tv.transforms.Pad(padding),
-            # tv.transforms.RandomAffine(0,translate=(padding/imsize,padding/imsize)),
-            tv.transforms.ToTensor()
+        transform = tvT.Compose([
+            tvT.RandomCrop(6),
+            # tvT.Pad(padding),
+            # tvT.RandomAffine(0,translate=(padding/imsize,padding/imsize)),
+            tvT.ToTensor()
         ])
-        self.data = t.utils.data.DataLoader(
-            tv.datasets.MNIST(
+        self.data = D.DataLoader(
+            tvD.MNIST(
                 root=mnist_root, train=True, download=True, transform=transform),
             batch_size=6, shuffle=True, num_workers=0, drop_last=True)
         self.dataiter = iter(self.data)
@@ -52,16 +54,16 @@ class MNIST_noise:
             for i,((ix,iy),s) in enumerate(zip(imloc,sizes)):
                 s = min(s, self.imsize-max(ix,iy), min(ix,iy))
                 loc = img[:, ix-s:ix+s, iy-s:iy+s]
-                # print(t.nn.functional.interpolate(noise[i:i+1], size=(1,1,2*s,2*s), mode='bilinear')[0])
-                loc += t.nn.functional.interpolate(noise[i:i+1], size=(2*s,2*s), mode='bilinear')[0]
-                t.clamp(loc, max=1, out=loc)
+                loc += torch.nn.functional.interpolate(
+                    noise[i:i+1], size=(2*s,2*s), mode='bilinear')[0]
+                torch.clamp(loc, max=1, out=loc)
                 # img[:, ix:ix+6, iy:iy+6] += im
-                # t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+                # torch.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
         else:
             imloc = np.random.randint(0,self.imsize-6,(6,2))
             for im,(ix,iy) in zip(noise,imloc):
                 img[:, ix:ix+6, iy:iy+6] += im
-                t.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
+                torch.clamp(img[0, ix:ix+6, iy:iy+6], max=1, out=img[0, ix:ix+6, iy:iy+6])
             
         return img
 
@@ -126,44 +128,44 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
     """
     if translate:
         transforms = [
-            tv.transforms.Pad(16), # (60-28)/2 = 16
-            tv.transforms.RandomAffine(degrees=0, translate=(16/60,16/60)),
-            tv.transforms.ToTensor(),
+            tvT.Pad(16), # (60-28)/2 = 16
+            tvT.RandomAffine(degrees=0, translate=(16/60,16/60)),
+            tvT.ToTensor(),
             MNIST_noise(60),
         ]
         if normalize:
-            transforms.append(tv.transforms.Normalize((0.0363,), (0.1870,)))
+            transforms.append(tvT.Normalize((0.0363,), (0.1870,)))
             # approximate numbers derived from the transformation process
             # empirically, this should actually be ((0.0394,), (0.1798))
     elif scale:
         transforms = [
-            tv.transforms.Pad(3*28//2),
+            tvT.Pad(3*28//2),
             RandomScale(-1, 2),
-            tv.transforms.ToTensor(),
+            tvT.ToTensor(),
             MNIST_noise(112, scale=True),
         ]
         if normalize:
-            transforms.append(tv.transforms.Normalize((0.0414,), (0.1751,)))
+            transforms.append(tvT.Normalize((0.0414,), (0.1751,)))
     else:
-        random_moment_rotate = tv.transforms.RandomApply([moment_rotate], p=1)
-        transforms = [tv.transforms.ToTensor(), random_moment_rotate]
+        random_moment_rotate = tvT.RandomApply([moment_rotate], p=1)
+        transforms = [tvT.ToTensor(), random_moment_rotate]
         if rotate:
-            transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
+            transforms.insert(0,tvT.RandomRotation(90, resample=PIL.Image.BILINEAR))
         if normalize:
-            transforms.append(tv.transforms.Normalize((0.1307,), (0.3081,)))
+            transforms.append(tvT.Normalize((0.1307,), (0.3081,)))
             # subtracts first number and divides with second
             # empirically, this should actually be ((0.1302,), (0.2892))
-    train_loader = t.utils.data.DataLoader(
-        tv.datasets.MNIST(
+    train_loader = D.DataLoader(
+        tvD.MNIST(
             root=mnist_root, train=True, download=True,
-            transform=tv.transforms.Compose(transforms)
+            transform=tvT.Compose(transforms)
         ),
         batch_size=batch_size, shuffle=True, num_workers=16 if translate or scale else 4
     )
-    test_loader = t.utils.data.DataLoader(
-        tv.datasets.MNIST(
+    test_loader = D.DataLoader(
+        tvD.MNIST(
             root=mnist_root, train=False, # download absent
-            transform=tv.transforms.Compose(transforms)
+            transform=tvT.Compose(transforms)
         ),
         batch_size=batch_size, shuffle=True, num_workers=16 if translate or scale else 4
     )
@@ -182,7 +184,7 @@ def translated_mnist(rotate=False,normalize=False, batch_size=256):
 def scaled_mnist(rotate=False, normalize=False, batch_size=256):
     "Helper function to call mnist with certain variables"
     assert rotate is False
-    return mnist(rotate=False, normalize=normalize, translate=False, scale=True, batch_size=batch_size)
+    return mnist(rotate=False, normalize=normalize, scale=True, batch_size=batch_size)
 
 
 def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
@@ -201,34 +203,34 @@ def cifar10(rotate=False,normalize=False,augment=False, batch_size=256):
         raise Exception("Normalization not implemented")
     if augment:
         train_transforms = [
-            tv.transforms.RandomHorizontalFlip(),
-            tv.transforms.RandomAffine(
+            tvT.RandomHorizontalFlip(),
+            tvT.RandomAffine(
                 degrees = 5,
                 translate = (0.05,0.05),
                 scale = (0.9,1.1),
                 shear = 5,
                 resample = PIL.Image.BILINEAR,
             ),
-            tv.transforms.ToTensor(),
+            tvT.ToTensor(),
         ]
-        test_transforms = [tv.transforms.ToTensor()]
+        test_transforms = [tvT.ToTensor()]
     else:
-        train_transforms = [tv.transforms.ToTensor()]
-        test_transforms = [tv.transforms.ToTensor()]
+        train_transforms = [tvT.ToTensor()]
+        test_transforms = [tvT.ToTensor()]
     if rotate:
-        train_transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
-        test_transforms.insert(0,tv.transforms.RandomRotation(90, resample=PIL.Image.BILINEAR))
-    train_loader = t.utils.data.DataLoader(
-        tv.datasets.CIFAR10(
+        train_transforms.insert(0,tvT.RandomRotation(90, resample=PIL.Image.BILINEAR))
+        test_transforms.insert(0,tvT.RandomRotation(90, resample=PIL.Image.BILINEAR))
+    train_loader = D.DataLoader(
+        tvD.CIFAR10(
             root='data/cache', train=True, download=True,
-            transform=tv.transforms.Compose(train_transforms)
+            transform=tvT.Compose(train_transforms)
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
-    test_loader = t.utils.data.DataLoader(
-        tv.datasets.CIFAR10(
+    test_loader = D.DataLoader(
+        tvD.CIFAR10(
             root='data/cache', train=False, # download absent
-            transform=tv.transforms.Compose(test_transforms)
+            transform=tvT.Compose(test_transforms)
         ),
         batch_size=batch_size, shuffle=True, num_workers=4
     )
@@ -262,7 +264,7 @@ class Resize_Image:
 
         return im
 
-class CustomDataset(t.utils.data.Dataset):
+class CustomDataset(D.Dataset):
     """Represents any precomputed dataset. The first row of the csv
     file should contain the mean and the standard deviations of all
     channels in the images, so that the dataset can normalize them.
@@ -283,28 +285,30 @@ class CustomDataset(t.utils.data.Dataset):
         self.frame = pd.read_csv(csv_file, header=None)
         self.root_dir = root_dir
 
-        self.moment_rotate = tv.transforms.RandomApply([moment_rotate], p=0)
-        transforms = [tv.transforms.ToTensor(), self.moment_rotate]
+        self.moment_rotate = tvT.RandomApply([moment_rotate], p=0)
+        transforms = [tvT.ToTensor(), self.moment_rotate]
 
         if transform:
             transforms.insert(0, transform)
-            #if isinstance(transform, tv.transforms.Compose):
+            #if isinstance(transform, tvT.Compose):
                 #print('inserting noise')
-                #transforms.append(tv.transforms.Lambda(lambda x: x + t.randn_like(x)*0.05))
+                #transforms.append(tvT.Lambda(lambda x: x + torch.randn_like(x)*0.05))
 
         if normalize:
             if len(self.frame.columns) == 6 and self.frame.iloc[0,3] != 0:
-                transforms.append(tv.transforms.Normalize(
-                    (float(self.frame.iloc[0,0])/255, self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
-                    (float(self.frame.iloc[0,3])/255, self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
+                transforms.append(tvT.Normalize(
+                    mean = (float(self.frame.iloc[0,0])/255,
+                     self.frame.iloc[0,1]/255, self.frame.iloc[0,2]/255,),
+                    std = (float(self.frame.iloc[0,3])/255,
+                     self.frame.iloc[0,4]/255, self.frame.iloc[0,5]/255,),
                 ))
             else:
-                transforms.append(tv.transforms.Normalize(
+                transforms.append(tvT.Normalize(
                     (float(self.frame.iloc[0,0])/255,),
                     (float(self.frame.iloc[0,1])/255,),
                 ))
         
-        self.transform = tv.transforms.Compose(transforms)
+        self.transform = tvT.Compose(transforms)
 
     def set_moment_probability(self, p):
         self.moment_rotate.p = p
@@ -338,14 +342,14 @@ def get_precomputed(path, normalize=True, batch_size=128):
     """
     plankton = 'plankton' in path.split('/')
     if plankton:
-        transform = tv.transforms.Compose([
-            tv.transforms.RandomAffine(
+        transform = tvT.Compose([
+            tvT.RandomAffine(
                 degrees = (-180,180),
                 translate = (10/95, 10/95),
                 shear = (-20,20),
                 resample = PIL.Image.BILINEAR),
             RandomScale(np.log2(1/1.3), np.log2(1.3)),
-            tv.transforms.RandomHorizontalFlip(0.5),
+            tvT.RandomHorizontalFlip(0.5),
             # original also does 'stretching'
         ])
     else:
@@ -356,19 +360,19 @@ def get_precomputed(path, normalize=True, batch_size=128):
         resize192 = Resize_Image(192, scale_up=True)
         resize = Resize_Image(95, scale_up=True, invert=False)
         transform = (resize if transform is None
-                    else tv.transforms.Compose([resize192, transform, resize]))
+                    else tvT.Compose([resize192, transform, resize]))
         test_transform = Resize_Image(95, scale_up=True)
     else:
         images = os.path.join(directory, 'images')
         test_transform = None
-    train_loader = t.utils.data.DataLoader(
+    train_loader = D.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'train.csv'),
             root_dir=images, normalize=normalize, transform=transform
         ),
         batch_size=batch_size, shuffle=True, num_workers= 16 if plankton else 4
     )
-    test_loader = t.utils.data.DataLoader(
+    test_loader = D.DataLoader(
         CustomDataset(
             os.path.join(directory, csv_file+'test.csv'),
             root_dir=images, normalize=normalize, transform=test_transform

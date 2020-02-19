@@ -1,6 +1,6 @@
 from data import get_precomputed
 import numpy as np
-import torch as t
+import torch
 
 train,test = get_precomputed('../data/svhn/extra_', normalize=True)
 
@@ -10,7 +10,7 @@ tempn = 0
 m = 0
 for x,y in train:
     tempn += len(y)
-    m += t.sum(x)
+    m += torch.sum(x)
     print(tempn, 'm', m / (tempn * 64**2))
 
 m /= n * 64**2
@@ -21,7 +21,7 @@ tempn = 0
 var = 0
 for x,y in train:
     tempn += len(y)
-    var += t.sum((x - m)**2)
+    var += torch.sum((x - m)**2)
     print(tempn, 'var', var / (tempn * 64**2))
 
 #var = 34650238.2796

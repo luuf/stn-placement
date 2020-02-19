@@ -1,4 +1,5 @@
-import torch as t
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from functools import reduce
@@ -16,7 +17,7 @@ def get_output_shape(input_shape, module):
             include any batch_size.
         module: anything that inherits from torch.nn.module
     """
-    dummy = t.tensor(
+    dummy = torch.tensor(
         np.zeros([2]+list(input_shape),  # batchnorm requires batchsize >1
         dtype='float32')
     )
@@ -24,7 +25,7 @@ def get_output_shape(input_shape, module):
     return out.shape[1:]
 
 
-class Downsample(t.nn.Module):
+class Downsample(nn.Module):
     """Halves each side of the input by downsampling bilinearly"""
     def __init__(self, scale_factor):
         super().__init__()
@@ -33,7 +34,7 @@ class Downsample(t.nn.Module):
         return F.interpolate(x, scale_factor=self.scale_factor, mode='bilinear')
 
 
-class Modular_Model(t.nn.Module):
+class Modular_Model(nn.Module):
     """Superclass that handles some optional parameters of modules.
     All subclasses are required to define default_parameters, which are
     used if no parameters are passed.
@@ -72,11 +73,11 @@ class Localization(Modular_Model):
 
         out_shape = get_output_shape(input_shape, self.model)
         assert len(out_shape) == 1, "Localization output must be flat"
-        self.affine_param = t.nn.Linear(out_shape[0], 6)
+        self.affine_param = nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.zero_()
         self.register_buffer(
-            'identity', t.tensor([1,0,0,0,1,0],dtype=t.float))
+            'identity', torch.tensor([1,0,0,0,1,0],dtype=t.float))
 
     def forward(self, x):
         return self.affine_param(self.model(x)) + self.identity
@@ -127,18 +128,18 @@ class Classifier(Modular_Model):
             
         if len(stn_placement) > 0:
             split_at = zip([0]+stn_placement[:-1],stn_placement)
-            self.pre_stn = t.nn.ModuleList([t.nn.Sequential(*layers[s:e]) for s,e in split_at])
-            self.final_layers = t.nn.Sequential(*layers[stn_placement[-1]:])
+            self.pre_stn = nn.ModuleList([nn.Sequential(*layers[s:e]) for s,e in split_at])
+            self.final_layers = nn.Sequential(*layers[stn_placement[-1]:])
         else:
-            self.pre_stn = t.nn.ModuleList([])
-            self.final_layers = t.nn.Sequential(*layers)
+            self.pre_stn = nn.ModuleList([])
+            self.final_layers = nn.Sequential(*layers)
 
         if loop:
-            self.loop_models = t.nn.ModuleList(
-                    [t.nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
+            self.loop_models = nn.ModuleList(
+                    [nn.Sequential(*self.pre_stn[:i]) for i in range(1,len(self.pre_stn)+1)])
             self.register_buffer(
                 'base_theta',
-                t.tensor(np.identity(3, dtype=np.float32))
+                torch.tensor(np.identity(3, dtype=np.float32))
             )
             # I need to define theta as a tensor before forward, so that
             # it's automatically ported to device together with model
@@ -149,20 +150,20 @@ class Classifier(Modular_Model):
             if not batchnorm:
                 self.batchnorm = False
             elif loop:
-                self.batchnorm = t.nn.ModuleList(
-                    [t.nn.BatchNorm2d(input_shape[0], affine=False) for _ in self.pre_stn])
+                self.batchnorm = nn.ModuleList(
+                    [nn.BatchNorm2d(input_shape[0], affine=False) for _ in self.pre_stn])
             else:
-                self.batchnorm = t.nn.ModuleList()
+                self.batchnorm = nn.ModuleList()
                 # batchnorms with appropriate shapes are added in next loop
             shape = input_shape
-            self.localization = t.nn.ModuleList()
+            self.localization = nn.ModuleList()
             for i,model in enumerate(self.pre_stn):
                 if iterative and len(model) == 0 and i > 0:
                     self.localization.append(self.localization[-1])
                 else:
                     shape = get_output_shape(shape, model)
                     if deep:
-                        self.localization.append(t.nn.Sequential(
+                        self.localization.append(nn.Sequential(
                             *deepcopy(self.pre_stn[:i+1]),
                             localization_class(localization_parameters, shape)
                         ))
@@ -170,18 +171,18 @@ class Classifier(Modular_Model):
                         self.localization.append(
                             localization_class(localization_parameters, shape))
                     if batchnorm and not loop:
-                        self.batchnorm.append(t.nn.BatchNorm2d(shape[0], affine=False))
+                        self.batchnorm.append(nn.BatchNorm2d(shape[0], affine=False))
                 if i == 0 and loop and scale_down_by != 1:
                     shape = get_output_shape(downsampled_shape, model)
         else:
             self.localization = None
 
         if loop:
-            final_shape = get_output_shape(input_shape, t.nn.Sequential(
+            final_shape = get_output_shape(input_shape, nn.Sequential(
                 downsampler, *self.pre_stn, self.final_layers
             ))
         else:
-            final_shape = get_output_shape(input_shape, t.nn.Sequential(
+            final_shape = get_output_shape(input_shape, nn.Sequential(
                 *self.pre_stn, downsampler, self.final_layers
             ))
 
@@ -194,9 +195,9 @@ class Classifier(Modular_Model):
         print('padding mode', self.padding_mode)
 
         if deep:
-            self.final_layers = t.nn.Sequential(
+            self.final_layers = nn.Sequential(
                 *self.pre_stn, self.final_layers)
-            self.pre_stn = t.nn.ModuleList(t.nn.Sequential() for _ in self.pre_stn)
+            self.pre_stn = nn.ModuleList(nn.Sequential() for _ in self.pre_stn)
 
         self.output = self.out(np.prod(final_shape))
 
@@ -207,7 +208,7 @@ class Classifier(Modular_Model):
     def stn(self, theta, y):
         theta = theta.view(-1, 2, 3)
         size = np.array(y.shape) // self.size_transform
-        grid = F.affine_grid(theta, t.Size(size))
+        grid = F.affine_grid(theta, torch.Size(size))
         transformed = F.grid_sample(y, grid, padding_mode=self.padding_mode)
         # plt.imshow(transformed.detach()[0,0,:,:])
         # plt.figure()
@@ -226,7 +227,7 @@ class Classifier(Modular_Model):
                     localization_output = self.localization[i](m(x))
                     mat = F.pad(localization_output, (0,3)).view((-1,3,3))
                     mat[:,2,2] = 1
-                    theta = t.matmul(theta,mat)
+                    theta = torch.matmul(theta,mat)
                     # note that the new transformation is multiplied
                     # from the right. Since the parameters are the
                     # inverse of the parameters that would be applied
@@ -251,7 +252,7 @@ class Classifier(Modular_Model):
                         loc_output = self.localization[i](x)
                         mat = F.pad(loc_output, (0,3)).view((-1,3,3))
                         mat[:,2,2] = 1
-                        theta = t.matmul(theta,mat)
+                        theta = torch.matmul(theta,mat)
                     x = self.stn(theta[:,0:2,:], loc_input)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
@@ -269,5 +270,5 @@ class Classifier(Modular_Model):
         if self.loop_models:
             self.loop_models.append(self.loop_models[-1])
         else:
-            self.pre_stn.append(t.nn.Sequential())
+            self.pre_stn.append(nn.Sequential())
         self.localization.append(self.localization[-1])
