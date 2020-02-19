@@ -1,19 +1,19 @@
 #%%
 import torch.nn.functional as F
-import torch as t
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import data
 
 def test_transform(theta, length=17, im=None):
     if im is None:
-        im = t.zeros((1,1,length,length))
+        im = torch.zeros((1,1,length,length))
         im[0,0,0,0] = 1
         im[0,0,0,length - 1] = 2
         im[0,0,length - 1,0] = 3
         im[0,0,length - 1,length - 1] = 4
         im[0,0,(length - 1)//2, (length - 1)//2] = 5
-    grid = F.affine_grid(t.tensor(theta).view(-1,2,3), im.shape)
+    grid = F.affine_grid(torch.tensor(theta).view(-1,2,3), im.shape)
     transformed = F.grid_sample(im, grid)
     return transformed
 
@@ -23,7 +23,7 @@ plt.imshow(test_im[0,0])
 plt.show()
 
 identity = [1.,0,0,0,1,0]
-theta = t.tensor([0.3,-1,-.5,1.3,-0.2,0.8]).view(-1,2,3)
+theta = torch.tensor([0.3,-1,-.5,1.3,-0.2,0.8]).view(-1,2,3)
 # distance = np.linalg.solve(theta[0,:,0:2], theta[0,:,2])
 distance = theta[0,:,2]
 print('distance', distance)

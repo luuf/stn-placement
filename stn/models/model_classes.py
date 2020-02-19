@@ -77,7 +77,7 @@ class Localization(Modular_Model):
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.zero_()
         self.register_buffer(
-            'identity', torch.tensor([1,0,0,0,1,0],dtype=t.float))
+            'identity', torch.tensor([1,0,0,0,1,0],dtype=torch.float))
 
     def forward(self, x):
         return self.affine_param(self.model(x)) + self.identity
