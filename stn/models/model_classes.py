@@ -248,12 +248,12 @@ class Classifier(Modular_Model):
                     if i == 0 or len(m) > 0:
                         loc_input = m(x)
                         loc_output = self.localization[i](loc_input)
-                        theta[:,0:2,:] = loc_output
+                        theta = self.base_theta
                     else:
                         loc_output = self.localization[i](x)
-                        mat = F.pad(loc_output, (0,3)).view((-1,3,3))
-                        mat[:,2,2] = 1
-                        theta = torch.matmul(theta,mat)
+                    mat = F.pad(loc_output, (0,3)).view((-1,3,3))
+                    mat[:,2,2] = 1
+                    theta = torch.matmul(theta,mat)
                     x = self.stn(theta[:,0:2,:], loc_input)
                     if self.batchnorm:
                         x = self.batchnorm[i](x)
