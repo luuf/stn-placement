@@ -66,7 +66,7 @@ class Localization(Modular_Model):
         input_shape: any iterable that describes the shape of the input
             to the network. Shouldn't include any batch size.
     """
-    def __init__(self, parameters, input_shape):
+    def __init__(self, parameters, input_shape, llr=1):
         super().__init__(parameters)
 
         self.init_model(input_shape)
@@ -76,11 +76,15 @@ class Localization(Modular_Model):
         self.affine_param = nn.Linear(out_shape[0], 6)
         self.affine_param.weight.data.zero_()
         self.affine_param.bias.data.zero_()
+        self.hook = None if llr == 1 else lambda x: x*llr
         self.register_buffer(
             'identity', torch.tensor([1,0,0,0,1,0],dtype=torch.float))
 
     def forward(self, x):
-        return self.affine_param(self.model(x)) + self.identity
+        x = self.affine_param(self.model(x))
+        if self.hook and x.requires_grad: # needed to avoid problems during testing
+            x.register_hook(self.hook)
+        return x + self.identity
 
 
 class Classifier(Modular_Model):

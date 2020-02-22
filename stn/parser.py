@@ -178,4 +178,18 @@ def get_parser():
     )
     parser.set_defaults(pretrain=False)
 
+    hook_llr_parser = parser.add_mutually_exclusive_group(required=False)
+    hook_llr_parser.add_argument(
+        "--hook-llr", dest="hook_llr", action="store_true",
+        help="""Use a hook to implement localization learning rate. If True,
+                and loop is True, the layers shared with the classification
+                network will receive an llr-fraction of the derivative from
+                the ST.
+                Default: False"""
+    )
+    hook_llr_parser.add_argument(
+        '--no-hookllr', dest='hook_llr', action='store_false',
+    )
+    parser.set_defaults(hook_llr=False)
+
     return parser

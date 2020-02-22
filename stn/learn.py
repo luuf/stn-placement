@@ -58,6 +58,9 @@ localization_class = models.localization_dict.get(args.localization)
 assert localization_class is not None, 'Could not find localization'
 assert len(args.stn_placement) > 0 or not localization_class
 
+if args.hook_llr and localization_class:
+    localization_class = partial(localization_class, llr=args.loc_lr_multiplier)
+
 print('Using optimizer',args.optimizer)
 assert args.momentum == 0 or not args.optimizer == 'adam', "Adam can't use momentum."
 optimizer_class = {
@@ -99,6 +102,7 @@ d = {
         'iterative':        args.iterative,
         'pretrain':         args.pretrain,
         'add_iteration':    args.add_iteration,
+        'hook_llr':         args.hook_llr,
     }
 torch.save(d, directory + 'model_details')
 eval.d = d      # used when calling functions from eval
@@ -277,7 +281,8 @@ for run in range(args.runs):
         params.append({'params': model.pre_stn.parameters(),
                         'lr': args.lr * args.pre_stn_multiplier})
         params.append({'params': model.localization.parameters(),
-                       'lr': args.lr * args.loc_lr_multiplier})
+                       'lr': args.lr * (1 if args.hook_llr
+                                        else args.loc_lr_multiplier)})
 
     optimizer = optimizer_class(
         params = params,
