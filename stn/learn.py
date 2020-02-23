@@ -166,6 +166,8 @@ def train(epoch):
         if args.add_iteration and scheduler.last_epoch == args.add_iteration[0]:
             print('Iteration is', scheduler.last_epoch, ': adding iteration')
             model.add_iteration()
+            print(optimizer.param_groups)
+            optimizer.param_groups[3]['lr'] /= 2
             del args.add_iteration[0]
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
