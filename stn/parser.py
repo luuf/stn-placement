@@ -188,7 +188,7 @@ def get_parser():
                 Default: False"""
     )
     hook_llr_parser.add_argument(
-        '--no-hookllr', dest='hook_llr', action='store_false',
+        '--no-hook-llr', dest='hook_llr', action='store_false',
     )
     parser.set_defaults(hook_llr=False)
 
