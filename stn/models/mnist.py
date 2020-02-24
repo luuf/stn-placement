@@ -308,9 +308,8 @@ class CNN_translate(Localization):
         self.c1 = nn.Conv2d(in_shape[0], self.param[0], kernel_size=(5,5))
         self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
         self.c2 = nn.Conv2d(self.param[0], self.param[1], kernel_size=(5,5))
-        if in_shape[-1] > 30:
-            self.mp = nn.MaxPool2d(kernel_size=2, stride=2)
-        side = 12 if in_shape[-1] == 60 else 7
+        side = (in_shape[-1]-4)//2 - 4
+        side = side//2 if side > 20 else side
         self.l = nn.Linear(self.param[1] * side**2, self.param[2])
 
     def model(self, x):
