@@ -147,8 +147,7 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         if normalize:
             transforms.append(tvT.Normalize((0.0414,), (0.1751,)))
     else:
-        random_moment_rotate = tvT.RandomApply([moment_rotate], p=1)
-        transforms = [tvT.ToTensor(), random_moment_rotate]
+        transforms = [tvT.ToTensor()]
         if rotate:
             transforms.insert(0,tvT.RandomRotation(90, resample=PIL.Image.BILINEAR))
         if normalize:
@@ -169,11 +168,6 @@ def mnist(rotate=True, normalize=True, translate=False, scale=False, batch_size=
         ),
         batch_size=batch_size, shuffle=True, num_workers=16 if translate or scale else 4
     )
-    def set_moment_probability(p):
-        random_moment_rotate.p = p
-    train_loader.dataset.set_moment_probability = set_moment_probability
-    test_loader.dataset.set_moment_probability = set_moment_probability
-    # note that this prevents us from modifying only the train/test loader
     return (train_loader, test_loader)
 
 def translated_mnist(rotate=False,normalize=False, batch_size=256):
