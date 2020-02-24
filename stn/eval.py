@@ -75,6 +75,8 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
         deep = d.get('deep', False),
         # mean = train_loader.dataset.mean
     )
+    for i in d.get('add_iteration', []):
+        model.add_iteration()
     
     model.load_state_dict(torch.load(
         directory+'/'+str(prefix)+version,
