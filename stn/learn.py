@@ -163,13 +163,12 @@ def train(epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
 
         scheduler.step()
-        if args.add_iteration and scheduler.last_epoch == args.add_iteration[0]:
+        if scheduler.last_epoch in args.add_iteration:
             print('Iteration is', scheduler.last_epoch, ': adding iteration')
             model.add_iteration()
             optimizer.param_groups[3]['lr'] /= 2
             optimizer.param_groups[3]['initial_lr'] /= 2
             scheduler.base_lrs[3] /= 2
-            del args.add_iteration[0]
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -225,13 +224,12 @@ def pretrain(epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
 
         scheduler.step()
-        if args.add_iteration and scheduler.last_epoch == args.add_iteration[0]:
+        if scheduler.last_epoch in args.add_iteration:
             print('Iteration is', scheduler.last_epoch, ': adding iteration')
             model.add_iteration()
             optimizer.param_groups[3]['lr'] /= 2
             optimizer.param_groups[3]['initial_lr'] /= 2
             scheduler.base_lrs[3] /= 2
-            del args.add_iteration[0]
     history['train_loss'][epoch] /= len(train_loader.dataset)
 
 def pretest(epoch):
