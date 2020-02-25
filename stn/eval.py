@@ -78,10 +78,14 @@ def get_model(prefix, version='final', di=None, llr=False, add_iterations=0):
     for i in d.get('add_iteration', []):
         model.add_iteration()
     
-    model.load_state_dict(torch.load(
-        directory+'/'+str(prefix)+version,
-        map_location='cpu',
-    ))
+    unexpected = model.load_state_dict(
+        torch.load(
+            directory+'/'+str(prefix)+version,
+            map_location='cpu'),
+        strict = False,
+    )
+    if unexpected.missing_keys or unexpected.unexpected_keys:
+        print('State dict did not match model. Unexpected:', unexpected)
     # model.load_state_dict(torch.load(directory+prefix+"ckpt"+"100"))
     for i in range(add_iterations):
         model.add_iteration()
@@ -583,12 +587,13 @@ def angle_from_matrix(thetas, all_transformations=False):
     # # and because I use counter-clockwise as positive direction
 
 
-def distance_from_matrix(thetas):
+def distance_from_matrix(thetas, mp=False):
     thetas = thetas.view((-1,2,3))
     # distances = np.array([
     #     np.linalg.solve(theta[:,0:2], theta[:,2]) for theta in thetas
     # ])
-    return np.array(thetas[:,:,2]) * np.array([-1, 1]) * 30
+    distance = np.array(thetas[:,:,2]) * np.array([-1, 1])
+    return distance * (25 if mp else (60-1)/2)
     # This is probably wrong for translations beyond the first layer.
     # Is negated twice because the digits are transformed in the reverse
     # of predicted transform, and because the y-axis is inverted.
@@ -801,7 +806,8 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
                 theta = model.localization[0](model.pre_stn[0](transformed.to(device))).cpu()
                 angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
                 scale = np.stack((sx, sy), axis=1)
-                distance = distance_from_matrix(theta)
+                distance = distance_from_matrix(theta,
+                    mp = len(model.pre_stn[0]) > 0 and not d['loop'])
 
                 angles = np.append(angles, angle)
                 distances = np.append(distances, distance, axis=0)
