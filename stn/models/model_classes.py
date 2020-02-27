@@ -5,6 +5,14 @@ import numpy as np
 from functools import reduce
 from copy import deepcopy
 
+def reset_parameters(seq):
+    print('Resetting parameters of', seq)
+    for m in seq:
+        if hasattr(m, 'reset_parameters'):
+            m.reset_parameters()
+            print('reset parameters of',m)
+        elif hasattr(m, '__getitem__'):
+            reset_parameters(m)
 
 def get_output_shape(input_shape, module):
     """Takes an input_shape and a module, and returns the shape that
@@ -161,9 +169,10 @@ class Classifier(Modular_Model):
                 else:
                     shape = get_output_shape(shape, model)
                     if deep:
+                        copy = deepcopy(self.pre_stn[:i+1])
+                        reset_parameters(copy)
                         self.localization.append(nn.Sequential(
-                            *deepcopy(self.pre_stn[:i+1]),
-                            localization_class(localization_parameters, shape)
+                            *copy, localization_class(localization_parameters, shape)
                         ))
                     else:
                         self.localization.append(
