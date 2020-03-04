@@ -192,4 +192,15 @@ def get_parser():
     )
     parser.set_defaults(hook_llr=False)
 
+    onlyloc_parser = parser.add_mutually_exclusive_group(required=False)
+    onlyloc_parser.add_argument(
+        "--onlyloc", dest="onlyloc", action="store_true",
+        help="""Do not train the final layers or output
+                Default: False"""
+    )
+    onlyloc_parser.add_argument(
+        '--no-onlyloc', dest='onlyloc', action='store_false',
+    )
+    parser.set_defaults(onlyloc=False)
+
     return parser
