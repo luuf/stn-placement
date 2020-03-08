@@ -166,9 +166,9 @@ def train(epoch):
         if scheduler.last_epoch in args.add_iteration:
             print('Iteration is', scheduler.last_epoch, ': adding iteration')
             model.add_iteration()
-            optimizer.param_groups[3]['lr'] /= 2
-            optimizer.param_groups[3]['initial_lr'] /= 2
-            scheduler.base_lrs[3] /= 2
+            optimizer.param_groups[-1]['lr'] /= 2
+            optimizer.param_groups[-1]['initial_lr'] /= 2
+            scheduler.base_lrs[-1] /= 2
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -274,9 +274,12 @@ for run in range(args.runs):
     model.pretrain = args.pretrain
 
     if args.load_model:
-        model.load_state_dict(torch.load(
-            args.load_model, map_location=device
-        ))
+        unexpected = model.load_state_dict(
+            torch.load(args.load_model, map_location=device),
+            strict = False
+        )
+        if unexpected.missing_keys or unexpected.unexpected_keys:
+            print('State dict did not match model. Unexpected:', unexpected)
 
     # Train model
     params = []
@@ -284,8 +287,9 @@ for run in range(args.runs):
         params.append({'params': model.final_layers.parameters()})
         params.append({'params': model.output.parameters()})
     if localization_class:
-        params.append({'params': model.pre_stn.parameters(),
-                        'lr': args.lr * args.pre_stn_multiplier})
+        if not args.onlyloc:
+            params.append({'params': model.pre_stn.parameters(),
+                            'lr': args.lr * args.pre_stn_multiplier})
         params.append({'params': model.localization.parameters(),
                        'lr': args.lr * (1 if args.hook_llr
                                         else args.loc_lr_multiplier)})
@@ -311,7 +315,7 @@ for run in range(args.runs):
         else:
             train(epoch)
             test(epoch)
-        if epoch % 10 == 0:
+        if epoch % 10 == 0 or epochs < 40:
             if args.moment_sched:
                 for k in moment_sched:
                     if epoch == k:
