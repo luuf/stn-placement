@@ -349,7 +349,8 @@ def get_precomputed(path, normalize=True, batch_size=128):
     else:
         transform = None
     directory, csv_file = os.path.split(path)
-    if csv_file == 'unprocessed_':
+    if 'unprocessed' in csv_file:
+        print('Using unprocessed images')
         images = os.path.join(directory, 'unprocessed')
         resize192 = Resize_Image(192, scale_up=True)
         resize = Resize_Image(95, scale_up=True, invert=False)
@@ -357,6 +358,7 @@ def get_precomputed(path, normalize=True, batch_size=128):
                     else tvT.Compose([resize192, transform, resize]))
         test_transform = Resize_Image(95, scale_up=True)
     else:
+        print('Using directory "images"')
         images = os.path.join(directory, 'images')
         test_transform = None
     train_loader = D.DataLoader(
