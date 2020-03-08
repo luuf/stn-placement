@@ -47,7 +47,6 @@ if args.iterations:
 else:
     epochs = args.epochs
     print('Using',epochs,'epochs ==',epochs*len(train_loader),'iterations')
-assert epochs > 0
 
 print('Using model:', args.model)
 model_class = models.model_dict.get(args.model)
@@ -347,10 +346,14 @@ for run in range(args.runs):
     else:
         final_test_accuracy = history['test_acc'][-1]
 
-    print('Train accuracy:', history['train_acc'][-1])
+    if epochs > 0:
+        print('Train accuracy:', history['train_acc'][-1])
+        final_accuracies['train'].append(history['train_acc'][-1])
+    else:
+        print('Epochs=0, did not train network')
+        final_accuracies['train'].append(None)
     print('Test accuracy:', final_test_accuracy)
     print()
-    final_accuracies['train'].append(history['train_acc'][-1])
     final_accuracies['test'].append(final_test_accuracy)
 
     torch.save(model.state_dict(), directory + prefix + 'final')
