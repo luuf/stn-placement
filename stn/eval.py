@@ -32,6 +32,10 @@ def load_data(data_dir, normalize=True):
     elif d['dataset'] == 'translate':
         print('Assuming no normalizaion on translated data')
         normalize = False
+    
+    if 'deep-localization' in data_dir:
+        print('In deep-localization; setting deep=True')
+        d['deep'] = True
 
     if d['dataset'] in data.data_dict:
         train_loader, test_loader = data.data_dict[d['dataset']](
@@ -403,11 +407,16 @@ def compare_all_labels(model=0, di=None, normalization=True,
     plt.show()
 
 
-def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
-    n = 5
-
+def compare_stns(di1, di2, model1=0, model2=0, im_nums=None, n=5,
+                 save_path='', title='', ylabels=[]):
     model = get_model(model1, di=di1)
-    batch = next(iter(test_loader))[0][:n]
+
+    if im_nums is not None:
+        n = len(im_nums)
+        batch = [test_loader.dataset[im_num][0] for im_num in im_nums]
+        batch = torch.stack(batch)
+    else:
+        batch = next(iter(test_loader))[0][:n]
 
     model.eval()
     theta = model.localization[0](model.pre_stn[0](batch))
@@ -418,9 +427,9 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
     theta = model.localization[0](model.pre_stn[0](batch))
     stn2 = model.stn(theta, batch)
 
-    plt.gray()
+    # plt.gray()
     fig, axs = plt.subplots(3, n, sharex='col', sharey='row', figsize=(n,3),
-                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02}, frameon=False)
     minimum = torch.min(batch)
     maximum = torch.max(batch)
     batch = (batch.detach() - minimum) / (maximum - minimum)
@@ -430,9 +439,18 @@ def compare_stns(di1, di2, model1=0, model2=0, save_path='', title=''):
         axs[0,i].imshow(np.moveaxis(batch[i].numpy(), 0, -1))
         axs[1,i].imshow(np.moveaxis(stn1[i].numpy(), 0, -1))
         axs[2,i].imshow(np.moveaxis(stn2[i].numpy(), 0, -1))
-        axs[0,i].axis(False)
-        axs[1,i].axis(False)
-        axs[2,i].axis(False)
+        axs[0,i].set_xticks([])
+        axs[0,i].set_yticks([])
+        axs[0,i].set_frame_on(False)
+        axs[1,i].set_xticks([])
+        axs[1,i].set_yticks([])
+        axs[1,i].set_frame_on(False)
+        axs[2,i].set_xticks([])
+        axs[2,i].set_yticks([])
+        axs[2,i].set_frame_on(False)
+
+    for ax,y in zip(axs[:,0], ylabels):
+        ax.set_ylabel(y)
 
     if title:
         plt.title(title)
@@ -483,11 +501,17 @@ def compare_plankton_transformation(model=0, di=None, param=[], normalize=None):
     plt.show()
 
 
-def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', param=[],
-                           normalize=None, ylabels=['','',''], save_path='', title=''):
+def compare_transformation(di1, di2, di3=None, model1=0, model2=0, model3=0, transform='rotate', param=[],
+                           normalize=None, ylabels=['','',''], save_path='', title='',
+                           subtract_identity=False, im_num=None):
     assert transform in ['rotate','translate','scale']
     model = get_model(model1, di=di1)
-    im = next(iter(untransformed_test))[0][:1]
+    
+    if im_num is None:
+        im = next(iter(untransformed_test))[0][:1]
+    else:
+        im = untransformed_test.dataset[im_num][0]
+        im = im.reshape(1,1,im.shape[-2],im.shape[-1])
 
     if transform == 'rotate':
         if len(param) == 0:
@@ -524,20 +548,50 @@ def compare_transformation(di1, di2, model1=0, model2=0, transform='rotate', par
 
     model.eval()
     theta = model.localization[0](model.pre_stn[0](transformed))
+    theta = theta - model.localization[0].identity if subtract_identity else theta
+    if len(model.pre_stn[0]) and not d['loop']:
+        print('changing translate')
+        theta = theta.view(-1,2,3)
+        theta[:,:,2] *= 25/29.5
     stn1 = model.stn(theta, transformed)
 
     model = get_model(model2, di=di2)
     model.eval()
     theta = model.localization[0](model.pre_stn[0](transformed))
+    theta = theta - model.localization[0].identity if subtract_identity else theta
+    if len(model.pre_stn[0]) and not d['loop']:
+        print('changing translate')
+        theta = theta.view(-1,2,3)
+        theta[:,:,2] *= 25/29.5
     stn2 = model.stn(theta, transformed)
 
-    fig, axs = plt.subplots(3, 3, figsize=(3,3.04), # sharex, sharey not necessary
-                gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    if di3 is not None:
+        model = get_model(model3, di=di3)
+        model.eval()
+        theta = model.localization[0](model.pre_stn[0](transformed))
+        theta = theta - model.localization[0].identity if subtract_identity else theta
+        if len(model.pre_stn[0]) and not d['loop']:
+            print('changing translate')
+            theta = theta.view(-1,2,3)
+            theta[:,:,2] *= 25/29.5
+        stn3 = model.stn(theta, transformed)
+
+
+    if di3 is not None:
+        fig, axs = plt.subplots(4, 3, figsize=(3,4.04), # sharex, sharey not necessary
+                    gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    else:
+        fig, axs = plt.subplots(3, 3, figsize=(3,3.04), # sharex, sharey not necessary
+                    gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
     plt.gray()
     for i in range(3):
         axs[0,i].imshow(transformed[i].detach().numpy()[0])
         axs[1,i].imshow(stn1[i].detach().numpy()[0])
         axs[2,i].imshow(stn2[i].detach().numpy()[0])
+        if di3 is not None:
+            axs[3,i].imshow(stn3[i].detach().numpy()[0])
+            axs[3,i].set_xticks([])
+            axs[3,i].set_yticks([])
         axs[0,i].set_xticks([])
         axs[0,i].set_yticks([])
         axs[1,i].set_xticks([])
@@ -589,14 +643,13 @@ def angle_from_matrix(thetas, all_transformations=False):
 
 def distance_from_matrix(thetas, mp=False):
     thetas = thetas.view((-1,2,3))
-    # distances = np.array([
+    # distance = np.array([
     #     np.linalg.solve(theta[:,0:2], theta[:,2]) for theta in thetas
-    # ])
+    # ]) * np.array([-1,1])
     distance = np.array(thetas[:,:,2]) * np.array([-1, 1])
     return distance * (25 if mp else (60-1)/2)
-    # This is probably wrong for translations beyond the first layer.
-    # Is negated twice because the digits are transformed in the reverse
-    # of predicted transform, and because the y-axis is inverted.
+    # Second variable is negated twice because the digits are transformed in
+    # the reverse of predicted transform, and because the y-axis is inverted.
 
 def plot_angles(rot=None, pred=None, res=None, line='equation', save_path='', title='',
                 xlabel='', ylabel='', pointlabel='', ll='best'):
@@ -833,7 +886,9 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
         elif transform == 'translate':
             predictions = distance_by_label[i]
         elif transform == 'scale':
-            predictions = np.log2(scale_by_label[i])
+            # predictions = np.log2(scale_by_label[i])
+            transformations = 2*transformations
+            predictions = np.log2(det_by_label[i])
         s = (sum(transformations) + sum(predictions)) / len(transformations)
         variance += sum([np.linalg.norm(t+p - s)**2 for t,p in zip(transformations,predictions)])
 
