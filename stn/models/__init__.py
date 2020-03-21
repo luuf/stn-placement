@@ -29,6 +29,7 @@ localization_dict = {
     'SVHN-s':   svhn.SVHN_small,
     'false':    False,
     'plankton-l': plankton.plankton_large,
+    'plankton4':  plankton.plankton_depth4,
 }
 
 model_dict = {
