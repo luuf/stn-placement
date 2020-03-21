@@ -195,7 +195,7 @@ def test(epoch = None):
     test_loss /= len(test_loader.dataset)
     correct /= len(test_loader.dataset)
 
-    if not epoch is None:
+    if epoch is not None:
         history['test_loss'][epoch] = test_loss
         history['test_acc'][epoch] = correct
     return test_loss, correct
@@ -272,6 +272,9 @@ for run in range(args.runs):
     model = model.to(device)
     model.pretrain = args.pretrain
 
+    for i in args.add_iteration:
+        if i == -1:
+            model.add_iteration()
     if args.load_model:
         unexpected = model.load_state_dict(
             torch.load(args.load_model, map_location=device),
@@ -279,6 +282,9 @@ for run in range(args.runs):
         )
         if unexpected.missing_keys or unexpected.unexpected_keys:
             print('State dict did not match model. Unexpected:', unexpected)
+    for i in args.add_iteration:
+        if i == 0:
+            model.add_iteration()
 
     # Train model
     params = []
@@ -332,10 +338,11 @@ for run in range(args.runs):
             scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
             print('x-scaling', scale[0], 'y-scaling', scale[1])
 
-    total_time = time.time() - start_time
-    print('Time', total_time)
-    print('Time per epoch', total_time / epochs)
-    print()
+    if epochs > 0:
+        total_time = time.time() - start_time
+        print('Time', total_time)
+        print('Time per epoch', total_time / epochs)
+        print()
 
     if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
         res = eval.transformation_statistics(
@@ -348,7 +355,7 @@ for run in range(args.runs):
     if args.dataset in ['mnist', 'translate', 'scale']:
         final_test_accuracy = sum(test()[1] for _ in range(10)) / 10
     else:
-        final_test_accuracy = history['test_acc'][-1]
+        final_test_accuracy = history['test_acc'][-1] if epochs > 0 else test()
 
     if epochs > 0:
         print('Train accuracy:', history['train_acc'][-1])
