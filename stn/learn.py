@@ -165,9 +165,9 @@ def train(epoch):
         if scheduler.last_epoch in args.add_iteration:
             print('Iteration is', scheduler.last_epoch, ': adding iteration')
             model.add_iteration()
-            optimizer.param_groups[3]['lr'] /= 2
-            optimizer.param_groups[3]['initial_lr'] /= 2
-            scheduler.base_lrs[3] /= 2
+            optimizer.param_groups[-1]['lr'] /= 2
+            optimizer.param_groups[-1]['initial_lr'] /= 2
+            scheduler.base_lrs[-1] /= 2
     history['train_loss'][epoch] /= len(train_loader.dataset)
     history['train_acc'][epoch] /= len(train_loader.dataset)
 
@@ -195,7 +195,7 @@ def test(epoch = None):
     test_loss /= len(test_loader.dataset)
     correct /= len(test_loader.dataset)
 
-    if not epoch is None:
+    if epoch is not None:
         history['test_loss'][epoch] = test_loss
         history['test_acc'][epoch] = correct
     return test_loss, correct
@@ -272,10 +272,19 @@ for run in range(args.runs):
     model = model.to(device)
     model.pretrain = args.pretrain
 
+    for i in args.add_iteration:
+        if i == -1:
+            model.add_iteration()
     if args.load_model:
-        model.load_state_dict(torch.load(
-            args.load_model, map_location=device
-        ))
+        unexpected = model.load_state_dict(
+            torch.load(args.load_model, map_location=device),
+            strict = False
+        )
+        if unexpected.missing_keys or unexpected.unexpected_keys:
+            print('State dict did not match model. Unexpected:', unexpected)
+    for i in args.add_iteration:
+        if i == 0:
+            model.add_iteration()
 
     # Train model
     params = []
@@ -283,8 +292,9 @@ for run in range(args.runs):
         params.append({'params': model.final_layers.parameters()})
         params.append({'params': model.output.parameters()})
     if localization_class:
-        params.append({'params': model.pre_stn.parameters(),
-                        'lr': args.lr * args.pre_stn_multiplier})
+        if not args.onlyloc:
+            params.append({'params': model.pre_stn.parameters(),
+                            'lr': args.lr * args.pre_stn_multiplier})
         params.append({'params': model.localization.parameters(),
                        'lr': args.lr * (1 if args.hook_llr
                                         else args.loc_lr_multiplier)})
@@ -310,7 +320,7 @@ for run in range(args.runs):
         else:
             train(epoch)
             test(epoch)
-        if epoch % 10 == 0:
+        if epoch % 10 == 0 or epochs < 40:
             if args.moment_sched:
                 for k in moment_sched:
                     if epoch == k:
@@ -328,10 +338,11 @@ for run in range(args.runs):
             scale = sum(sum(res[-3][label]) for label in range(10)) / len(test_loader.dataset)
             print('x-scaling', scale[0], 'y-scaling', scale[1])
 
-    total_time = time.time() - start_time
-    print('Time', total_time)
-    print('Time per epoch', total_time / epochs)
-    print()
+    if epochs > 0:
+        total_time = time.time() - start_time
+        print('Time', total_time)
+        print('Time per epoch', total_time / epochs)
+        print()
 
     if localization_class and args.dataset in ['mnist', 'translate', 'scale']:
         res = eval.transformation_statistics(
@@ -344,7 +355,7 @@ for run in range(args.runs):
     if args.dataset in ['mnist', 'translate', 'scale']:
         final_test_accuracy = sum(test()[1] for _ in range(10)) / 10
     else:
-        final_test_accuracy = history['test_acc'][-1]
+        final_test_accuracy = history['test_acc'][-1] if epochs > 0 else test()
 
     if epochs > 0:
         print('Train accuracy:', history['train_acc'][-1])

@@ -6,7 +6,8 @@ from functools import reduce
 from copy import deepcopy
 
 def reset_parameters(seq):
-    print('Resetting parameters of', seq)
+    #print('NOT RESETTING PARAMETERS')
+    #print('Resetting parameters of', seq)
     for m in seq:
         if hasattr(m, 'reset_parameters'):
             m.reset_parameters()
