@@ -1010,3 +1010,43 @@ def get_gradients(model=0, di=None, version='final'):
             print(p.grad.shape)
             print(torch.norm(p.grad.view(-1)))
             print()
+
+
+### VISUALISE WEIGHTS ###
+
+def plot_first_layer(model1=0, model2=0, di1=None, di2=None):
+    if type(model1) == int:
+        model1 = get_model(model1, di=di1)
+    if type(model2) == int:
+        model2 = get_model(model2, di=di2)
+
+    layer1 = model1.pre_stn[0] if len(model1.pre_stn[0]) else model1.final_layers[0]
+    while type(layer1) == torch.nn.Sequential:
+        layer1 = layer1[0]
+    print(layer1)
+
+    layer2 = model2.pre_stn[0] if len(model2.pre_stn[0]) else model2.final_layers[0]
+    print('1',layer2)
+    while type(layer2) == torch.nn.Sequential:
+        layer2 = layer2[0]
+        print('2',layer2)
+    print('3',layer2)
+
+    filters1 = next(layer1.parameters())
+    filters2 = next(layer2.parameters())
+
+    mi = min(torch.min(filters1), torch.min(filters2))
+    ma = max(torch.max(filters1), torch.max(filters2))
+    print('mi',mi)
+    print('ma',ma)
+
+    fig, axs = plt.subplots(8, 8, sharex='col', sharey='row', figsize=(11,9),
+                            gridspec_kw={'hspace': 0.02, 'wspace': 0.02})
+    for i,f in enumerate(filters1):
+        axs[i%8, i//8].imshow(f[0].detach().numpy(), vmin=mi, vmax=ma)
+    for i,f in enumerate(filters2):
+        pcm = axs[i%8, 4+i//8].imshow(f[0].detach().numpy(), vmin=mi, vmax=ma)
+
+    fig.colorbar(pcm, ax=axs)
+
+    plt.show()
