@@ -81,6 +81,10 @@ def get_parser():
         "--add-iteration", nargs="*", type=int, default = [],
         help="Add extra st-iterations after this many iterations"
     )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Random seed to use. If None, the computation will not be random"
+    )
 
     epoch_parser = parser.add_mutually_exclusive_group(required=True)
     epoch_parser.add_argument(

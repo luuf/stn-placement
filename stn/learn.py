@@ -12,17 +12,29 @@ import data
 import models
 import parser
 import angles
+import random
 from datetime import datetime
 from functools import partial
 from ylvas_code.lrdecay_functions import StepLRBase
 
 print('Launched at', datetime.now())
+
+
 #%% Parse arguments
 args = parser.get_parser().parse_args()
 
 print("Parsed: ", args)
 
 #%% Read arguments
+if args.seed is not None:
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 if args.dataset in data.data_dict:
     print('Using dataset:', args.dataset, '; rotated' if args.rotate else '')
     train_loader, test_loader = data.data_dict[args.dataset](
