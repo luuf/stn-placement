@@ -47,8 +47,12 @@ def load_data(data_dir, normalize=True):
             train_loader, test_loader = data.get_precomputed(
                 '../'+d['dataset'], normalize=normalize)
         except FileNotFoundError:
-            train_loader, test_loader = data.get_precomputed(
-                '../data/'+d['dataset'], normalize=normalize)
+            try:
+                train_loader, test_loader = data.get_precomputed(
+                    '../data/'+d['dataset'], normalize=normalize)
+            except FileNotFoundError:
+                train_loader, test_loader = data.get_precomputed(
+                    d['dataset'], normalize=normalize)
         untransformed_test = test_loader
 
 
