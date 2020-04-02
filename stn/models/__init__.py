@@ -30,6 +30,7 @@ localization_dict = {
     'false':    False,
     'plankton-l': plankton.plankton_large,
     'plankton4':  plankton.plankton_depth4,
+    'plankton2':  plankton.plankton_depth2,
 }
 
 model_dict = {
