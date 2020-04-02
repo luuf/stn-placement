@@ -612,7 +612,8 @@ def compare_transformation(di1, di2, di3=None, model1=0, model2=0, model3=0, tra
 
 
 ### TRANSFORMATION STATISTICS ###
-def angle_from_matrix(thetas, all_transformations=False):
+def angle_from_matrix(thetas, all_transformations=False, newangle=True):
+
     # V1: Inverts in order to get parameters for the number's
     #     transformation, and decomposes into Scale Shear Rot
     mat = F.pad(thetas, (0, 3)).view(-1,3,3)
@@ -620,9 +621,15 @@ def angle_from_matrix(thetas, all_transformations=False):
 
     transform = torch.inverse(mat)
 
-    angle = (np.arctan2(transform[:,0,1], transform[:,0,0])) * 180 / np.pi
-    # negated twice because the y-axis is inverted and 
-    # because I use counter-clockwise as positive direction
+    if newangle:
+        scale = np.sqrt(mat[:,0,0]**2+mat[:,0,1]**2-2*mat[:,0,1]*mat[:,1,0]+
+                        mat[:,1,1]**2+mat[:,1,0]**2+2*mat[:,0,0]*mat[:,1,1])/2
+        angle = np.arctan2(mat[:,0,1] - mat[:,1,0], mat[:,0,0] + mat[:,1,1])
+        angle *= -180 / np.pi
+    else:
+        angle = (np.arctan2(transform[:,0,1], transform[:,0,0])) * 180 / np.pi
+        # negated twice because the y-axis is inverted and 
+        # because I use counter-clockwise as positive direction
     if not all_transformations:
         return angle
 
@@ -652,11 +659,13 @@ def distance_from_matrix(thetas, mp=False):
     # the reverse of predicted transform, and because the y-axis is inverted.
 
 def plot_angles(rot=None, pred=None, res=None, line='equation', save_path='', title='',
-                xlabel='', ylabel='', pointlabel='', ll='best'):
+                xlabel='', ylabel='', pointlabel='', ll='best', negative=False):
     if res is not None:
         assert rot is None and pred is None
         rot = np.concatenate(res[0])
         pred = np.concatenate(res[1])
+        if negative:
+            pred *= -1
     plt.figure(figsize=(3,3))
     heatmap, xedges, yedges = np.histogram2d(
         rot, pred, bins=110, range=[[-110,110],[-110,110]])
