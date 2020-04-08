@@ -810,7 +810,8 @@ def transformation_statistics(model=0, plot=True, di=None, transform='rotate',
     elif 'untransformed_test' not in globals():
         _, untransformed_test = data.mnist(rotate=False, normalize=False, translate=False)
 
-    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     transformation = np.zeros((0,2) if transform == 'translate' else (0,1))
     tran_by_label = []
@@ -937,13 +938,14 @@ def min_angle_dist(angles):
                 sums[i] += min(diff, 180-diff)
     return min(sums)
 
-def plankton_rotation_statistics(model=0, di=None, samples=5):
+def plankton_rotation_statistics(model=0, di=None, samples=5, printprogress=True):
     global untransformed_test
 
     if type(model) == int:
         model = get_model(model, di=di)
 
-    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     # transformation = np.zeros((0,samples))
     # tran_by_label = []
@@ -967,10 +969,11 @@ def plankton_rotation_statistics(model=0, di=None, samples=5):
     with torch.no_grad():
         model.eval()
         for i,(x,y) in enumerate(untransformed_test):
-            print(i*128 / l)
+            if printprogress and i % 5 == 0:
+                print(i*128 / l)
             # transformation = np.append(transformation, angle, axis=0)
 
-            temp_angles = np.zeros_like(angle)
+            temp_angles = np.zeros((x.shape[0], samples))
             for s in range(samples):
                 transformed = torch.tensor([
                     rotate(im[0], angle[s]) for im in x
@@ -993,10 +996,11 @@ def plankton_rotation_statistics(model=0, di=None, samples=5):
             # labels = np.append(labels, y)
 
     tot_trans = angle+angles
-    print(tot_trans)
     total_angle_dist = sum(min_angle_dist(a) for a in tot_trans)
     mean_angle_dist = total_angle_dist / (samples - 1) / l
     print(mean_angle_dist)
+
+    return (mean_angle_dist)
 
     # variance = 0
     # for i in range(10):
