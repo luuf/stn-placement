@@ -928,6 +928,93 @@ def average_n(res, n):
         print(s)
 
 
+def min_angle_dist(angles):
+    sums = np.zeros_like(angles)
+    for i,a1 in enumerate(angles):
+        for a2 in angles:
+            if a1 != a2:
+                diff = (a1 - a2) % 180
+                sums[i] += min(diff, 180-diff)
+    return min(sums)
+
+def plankton_rotation_statistics(model=0, di=None, samples=5):
+    global untransformed_test
+
+    if type(model) == int:
+        model = get_model(model, di=di)
+
+    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+
+    # transformation = np.zeros((0,samples))
+    # tran_by_label = []
+
+    angles = np.zeros((0,samples))
+    # distances = np.zeros((0,2,samples))
+    # scales = np.zeros((0,2,samples))
+    # dets = np.array([])
+    # shears = np.array([])
+    # angle_by_label = []
+    # distance_by_label = []
+    # scale_by_label = []
+    # det_by_label = []
+    # shear_by_label = []
+
+    labels = np.array([])
+
+    angle = np.linspace(-180, 180, num=samples, endpoint=False)
+
+    l = len(untransformed_test.dataset)
+    with torch.no_grad():
+        model.eval()
+        for i,(x,y) in enumerate(untransformed_test):
+            print(i*128 / l)
+            # transformation = np.append(transformation, angle, axis=0)
+
+            temp_angles = np.zeros_like(angle)
+            for s in range(samples):
+                transformed = torch.tensor([
+                    rotate(im[0], angle[s]) for im in x
+                ], dtype=torch.float).reshape(-1, 1, 95, 95)
+
+                theta = model.localization[0](model.pre_stn[0](transformed.to(device))).cpu()
+                temp_angles[:,s] = angle_from_matrix(theta, all_transformations=False)
+                # angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
+                # scale = np.stack((sx, sy), axis=1)
+                # distance = distance_from_matrix(theta)
+
+            angles = np.append(angles, temp_angles, axis=0)
+
+            # angles = np.append(angles, angle)
+            # distances = np.append(distances, distance, axis=0)
+            # scales = np.append(scales, scale, axis=0)
+            # dets = np.append(dets, det)
+            # shears = np.append(shears, shear)
+
+            # labels = np.append(labels, y)
+
+    tot_trans = angle+angles
+    print(tot_trans)
+    total_angle_dist = sum(min_angle_dist(a) for a in tot_trans)
+    mean_angle_dist = total_angle_dist / (samples - 1) / l
+    print(mean_angle_dist)
+
+    # variance = 0
+    # for i in range(10):
+    #     indices = labels==i
+    #     tran_by_label.append(transformation[indices])
+    #     # angle_by_label.append(angles[indices])
+    #     # distance_by_label.append(distances[indices])
+    #     # scale_by_label.append(scales[indices])
+    #     # det_by_label.append(dets[indices])
+    #     # shear_by_label.append(shears[indices])
+        
+    #     transformations = tran_by_label[i]
+    #     predictions = angle_by_label[i]
+    #     s = (sum(transformations) + sum(predictions)) / len(transformations)
+    #     variance += sum([np.linalg.norm(t+p - s)**2 for t,p in zip(transformations,predictions)])
+
+
+
 ### GRADIENT STATISTICS ###
 
 def hook(x):
