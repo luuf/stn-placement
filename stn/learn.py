@@ -27,12 +27,22 @@ print("Parsed: ", args)
 
 #%% Read arguments
 if args.seed is not None:
+    print('Using random seed', args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+else:
+    print('Not setting deterministic computation')
+    seed = random.randrange(2**32)
+    random.seed(seed)
+    seeds = (random.randrange(2**32),random.randrange(2**32),random.randrange(2**32))
+    np.random.seed(seeds[0])
+    torch.manual_seed(seeds[1])
+    torch.cuda.manual_seed_all(seeds[2])
+    print('Using base seed', seed, 'and np, torch, torch.cuda seeds', seeds)
 
 
 if args.dataset in data.data_dict:
@@ -86,7 +96,7 @@ assert localization_class or (
 assert not (args.loop and args.deep)
 
 directory = args.name + '/'
-makedirs(directory, exist_ok=True)
+makedirs(directory, exist_ok=False)
 
 # Save model details
 d = {
