@@ -982,17 +982,17 @@ def plankton_rotation_statistics(model=0, di=None, samples=5, printprogress=True
                 # theta = model.localization[0](model.pre_stn[0](transformed.to(device))).cpu()
                 if not d['loop']:
                     assert not d.get('batchnorm')
-                    x = transformed.to(device)
+                    x2 = transformed.to(device)
                     base_theta = torch.eye(3).to(device)
                     for i,m in enumerate(model.pre_stn):
                         if i != 0:
-                            x = model.stn(theta[:,0:2,:], loc_input)
+                            x2 = model.stn(theta[:,0:2,:], loc_input)
                         if i == 0 or len(m) > 0:
-                            loc_input = m(x)
+                            loc_input = m(x2)
                             loc_output = model.localization[i](loc_input)
                             theta = base_theta
                         else:
-                            loc_output = model.localization[i](x)
+                            loc_output = model.localization[i](x2)
                         mat = F.pad(loc_output, (0,3)).view((-1,3,3))
                         mat[:,2,2] = 1
                         theta = torch.matmul(theta,mat)
@@ -1000,15 +1000,15 @@ def plankton_rotation_statistics(model=0, di=None, samples=5, printprogress=True
                     assert not d.get('batchnorm')
                     transformed = transformed.to(device)
                     theta = torch.eye(3).to(device)
-                    x = transformed
+                    x2 = transformed
                     for i,m in enumerate(model.loop_models):
                         if i != 0:
-                            x = model.stn(theta[:,0:2,:], transformed)
-                        localization_output = model.localization[i](m(x))
+                            x2 = model.stn(theta[:,0:2,:], transformed)
+                        localization_output = model.localization[i](m(x2))
                         mat = F.pad(localization_output, (0,3)).view((-1,3,3))
                         mat[:,2,2] = 1
                         theta = torch.matmul(theta,mat)
-                theta = theta[:,0:2,:].view(-1,6)
+                theta = theta[:,0:2,:].view(-1,6).cpu()
 
                 temp_angles[:,s] = angle_from_matrix(theta, all_transformations=False)
                 # angle, shear, sx, sy, det = angle_from_matrix(theta, all_transformations=True)
