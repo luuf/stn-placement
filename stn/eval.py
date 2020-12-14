@@ -415,12 +415,12 @@ def compare_stns(di1, di2, model1=0, model2=0, im_nums=None, n=5,
                  save_path='', title='', ylabels=[]):
     model = get_model(model1, di=di1)
 
-    if im_nums is not None:
-        n = len(im_nums)
-        batch = [test_loader.dataset[im_num][0] for im_num in im_nums]
-        batch = torch.stack(batch)
-    else:
-        batch = next(iter(test_loader))[0][:n]
+    if im_nums is None:
+        im_nums = np.random.randint(0,len(test_loader.dataset),size=n)
+        print('im nums: ', im_nums)
+    n = len(im_nums)
+    batch = [test_loader.dataset[im_num][0] for im_num in im_nums]
+    batch = torch.stack(batch)
 
     model.eval()
     theta = model.localization[0](model.pre_stn[0](batch))
@@ -454,7 +454,7 @@ def compare_stns(di1, di2, model1=0, model2=0, im_nums=None, n=5,
         axs[2,i].set_frame_on(False)
 
     for ax,y in zip(axs[:,0], ylabels):
-        ax.set_ylabel(y)
+        ax.set_ylabel(y,fontsize=12)
 
     if title:
         plt.title(title)
